@@ -1,0 +1,32 @@
+! ============================================================
+! 0-start-thermal.inp  --  SKELETON, not yet implemented
+! ============================================================
+! Driver entry for the thermal_cooldown cablestack stage.
+! Goal (future): cool the cable cross-section from 293 K to 4.2 K
+! so that CTE mismatch between Cu, Nb3Sn, impreg and insulation
+! develops the axial pre-strain on Nb3Sn that drives Ic.
+!
+! When implementing, mirror the structure of 0-start.inp:
+!   /UNITS,SI; /PREP7; /input,1-material_properties; /inp,2-geo;
+!   /inp,3-mesh; /inp,4-cont; /inp,5-BC-thermal,inp; /inp,8-PP-thermal,inp
+!
+! Also required for real physics (NOT done yet):
+!   * MP,ALPX,<mat>,<cte> for materials 1..5 in 1-material_properties.inp
+!     (Cu ~16e-6/K, Nb3Sn ~7e-6/K, wax/epoxy ~50e-6/K, G11 ~10e-6/K,
+!      steel ~12e-6/K; verify against literature at LN2)
+!   * Cooldown load step in 5-BC-thermal.inp (TUNIF,4.2 with TREF,293
+!     already set in 0-start.inp -- or a graded T(t) ramp).
+!   * Nb3Sn axial-strain dump in 8-PP-thermal.inp.
+! ============================================================
+
+FINISH
+/CLEAR,START
+/TITLE, thermal_cooldown_SKELETON
+
+/COM, ============================================================
+/COM, thermal_cooldown stage is a SKELETON -- physics not implemented.
+/COM, Edit 5-BC-thermal.inp + 8-PP-thermal.inp + add CTE to materials.
+/COM, ============================================================
+
+! Exit cleanly so MAPDL does not silently do nothing weird.
+/EXIT,NOSAVE

@@ -1,0 +1,304 @@
+{
+  "description": "Nb3Sn Critical Current Scaling Parameters for different wire types",
+  "source": "https://doi.org/10.1109/TASC.2022.3167655",
+  "wire_types": {
+    "RRP MQXF 0.85 mm": {
+      "description": "Nb3Sn RRP MQXF 0.85mm 108/127 Critical Current Scaling Parameters",
+      "parameters": {
+        "C0": {
+          "value": 60400,
+          "uncertainty": 2200,
+          "unit": "A·T",
+          "description": "Critical current scaling parameter"
+        },
+        "Bc20": {
+          "value": 30.77,
+          "uncertainty": 0.58,
+          "unit": "T",
+          "description": "Upper critical field at T=0K (BC20,max)"
+        },
+        "Tc0": {
+          "value": 16.47,
+          "uncertainty": 0.40,
+          "unit": "K",
+          "description": "Critical temperature at B=0T (TC0,max)"
+        },
+        "C1": {
+          "value": 0.75,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter (recommended)"
+        },
+        "eps_l0": {
+          "value": -0.354,
+          "uncertainty": 0.015,
+          "unit": "%",
+          "description": "Longitudinal strain parameter (εL0, recommended value for Cu-Be sample holder)"
+        },
+        "eps_l0_free_strand": {
+          "value": -0.25,
+          "uncertainty": 0.015,
+          "unit": "%",
+          "description": "Longitudinal strain parameter (εL0, free strand proposed by bordini)"
+        },
+        "eta": {
+          "value": 2.051,
+          "uncertainty": 0.383,
+          "unit": "dimensionless",
+          "description": "ESE scaling parameter (η)"
+        },
+        "sigma": {
+          "value": 1.07,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Scaling parameter (σ, recommended)"
+        },
+        "nu": {
+          "value": 0.36,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Poisson's ratio (ν)"
+        },
+        "K": {
+          "value": 0.001,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter"
+        },
+        "p": {
+          "value": 0.5,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        },
+        "q": {
+          "value": 2.0,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        }
+      }
+    },
+    "PIT MQXF 0.85 mm": {
+      "description": "Nb3Sn PIT MQXF 0.85mm Critical Current Scaling Parameters",
+      "source": "10.1109/TASC.2022.3163060, Supercond. Sci. Technol. 26 (2013) 075014 giorgio vallone",
+      "parameters": {
+        "C0": {
+          "value": 50500,
+          "uncertainty": null,
+          "unit": "A·T",
+          "description": "Critical current scaling parameter"
+        },
+        "Tc0": {
+          "value": 16.7,
+          "uncertainty": null,
+          "unit": "K",
+          "description": "Critical temperature at B=0T"
+        },
+        "Bc20": {
+          "value": 30.97,
+          "uncertainty": null,
+          "unit": "T",
+          "description": "Upper critical field at T=0K"
+        },
+        "C1": {
+          "value": 0.735,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter"
+        },
+        "eps_l0": {
+          "value": -0.18,
+          "uncertainty": null,
+          "unit": "%",
+          "description": "Longitudinal strain parameter"
+        },
+        "eta": {
+          "value": 2.051,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "ESE scaling parameter (η)"
+        },
+        "sigma": {
+          "value": 1,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Scaling parameter (σ)"
+        },
+        "K": {
+          "value": 0.001,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter"
+        },
+        "nu": {
+          "value": 0.36,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Poisson's ratio (ν)"
+        },
+        "p": {
+          "value": 0.5,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        },
+        "q": {
+          "value": 1.93,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        }
+      }
+    },
+    "RRP MQXF 0.85 mm solenoid": {
+      "description": "Nb3Sn RRP MQXF 0.85mm 108/127 Critical Current Scaling Parameters for solenoid application",
+      "parameters": {
+        "C0": {
+          "value": 50000,
+          "uncertainty": 2200,
+          "unit": "A·T",
+          "description": "Critical current scaling parameter"
+        },
+        "Bc20": {
+          "value": 30.77,
+          "uncertainty": 0.58,
+          "unit": "T",
+          "description": "Upper critical field at T=0K (BC20,max)"
+        },
+        "Tc0": {
+          "value": 16.47,
+          "uncertainty": 0.40,
+          "unit": "K",
+          "description": "Critical temperature at B=0T (TC0,max)"
+        },
+        "C1": {
+          "value": 0.75,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter (recommended)"
+        },
+        "eps_l0": {
+          "value": -0.354,
+          "uncertainty": 0.015,
+          "unit": "%",
+          "description": "Longitudinal strain parameter (εL0, recommended value for Cu-Be sample holder)"
+        },
+        "eps_l0_free_strand": {
+          "value": -0.25,
+          "uncertainty": 0.015,
+          "unit": "%",
+          "description": "Longitudinal strain parameter (εL0, free strand proposed by bordini)"
+        },
+        "eta": {
+          "value": 2.051,
+          "uncertainty": 0.383,
+          "unit": "dimensionless",
+          "description": "ESE scaling parameter (η)"
+        },
+        "sigma": {
+          "value": 1,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Scaling parameter (σ)"
+        },
+        "nu": {
+          "value": 0.36,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Poisson's ratio (ν)"
+        },
+        "K": {
+          "value": 0.001,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter"
+        },
+        "p": {
+          "value": 0.5,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        },
+        "q": {
+          "value": 1.93,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        }
+      }
+    },
+    "PIT MQXF 0.85 mm solenoid": {
+      "description": "Nb3Sn PIT MQXF 0.85mm Critical Current Scaling Parameters for solenoid application",
+      "source": "10.1109/TASC.2022.3163060, Supercond. Sci. Technol. 26 (2013) 075014 giorgio vallone",
+      "parameters": {
+        "C0": {
+          "value": 45e3,
+          "uncertainty": null,
+          "unit": "A·T",
+          "description": "Critical current scaling parameter"
+        },
+        "Tc0": {
+          "value": 16.7,
+          "uncertainty": null,
+          "unit": "K",
+          "description": "Critical temperature at B=0T"
+        },
+        "Bc20": {
+          "value": 30.97,
+          "uncertainty": null,
+          "unit": "T",
+          "description": "Upper critical field at T=0K"
+        },
+        "C1": {
+          "value": 0.735,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter"
+        },
+        "eps_l0": {
+          "value": -0.18,
+          "uncertainty": null,
+          "unit": "%",
+          "description": "Longitudinal strain parameter"
+        },
+        "eta": {
+          "value": 2.2,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "ESE scaling parameter (η)"
+        },
+        "sigma": {
+          "value": 1,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Scaling parameter (σ)"
+        },
+        "K": {
+          "value": 0.001,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Exponential scaling law parameter"
+        },
+        "nu": {
+          "value": 0.36,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "Poisson's ratio (ν)"
+        },
+        "p": {
+          "value": 0.5,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        },
+        "q": {
+          "value": 1.93,
+          "uncertainty": null,
+          "unit": "dimensionless",
+          "description": "pinning parameter"
+        }
+      }
+    }
+  }
+}

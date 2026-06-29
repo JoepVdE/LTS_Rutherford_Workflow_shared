@@ -1,0 +1,136 @@
+! ==============================
+! ==== boundary conditions =====
+! ==============================
+SELTOL, 1.E-7
+!!! node set 
+allsel
+nsel,s,loc,y,-y_cab
+nsel,r,loc,x,-x_cab+1.e-6,x_cab-1.e-6
+cm,nset_bot,node
+
+allsel
+nsel,s,loc,x,x_cab
+cm,nset_right,node
+
+nsel,s,loc,x,-x_cab
+cm,nset_left,node
+
+
+allsel
+*IF,side_support,EQ,1,THEN
+    cmsel,u,left_side_support
+    cmsel,u,right_side_support
+    allsel,below,area
+*ENDIF
+
+nsel,r,loc,y,(2*n_stacks-1)*y_cab
+nsel,r,loc,x,-x_cab,x_cab
+
+cm,nset_top,node
+
+! apply BC 
+alls
+CMSEL, s, nset_left, node 
+D, nset_left, Ux, 0
+
+CMSEL, s, nset_right, node 
+D, nset_right, Ux, 0
+
+CMSEL, s, nset_bot, node 
+D, nset_bot, Uy, 0
+D, nset_bot, Ux, 0
+
+CMSEL,s,nset_top,node
+! D, nset_top, Uy, 0
+! D, nset_bot, Ux, 0
+
+
+!SIDE SUPPORT BC
+*IF,side_support,EQ,1,THEN
+
+    allsel
+    cmsel,none
+    asel,none
+
+
+
+    cmsel,s,left_side_support
+    cmsel,a,right_side_support
+
+
+    allsel,belo,area
+
+    cmsel,u,nset_top
+    D, all, Uy, 0
+    D, all, Ux, 0
+
+
+
+*ENDIF
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Close contacts!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! allsel
+! ! esel,u,,,n_conta_sidewall
+! CNCHECK,adjust !close all contacts 
+! R,n_conta_sidewall,,,, ,, 
+! RMORE,,,,-50e-6, ,
+
+! CNCHECK,MORPH
+allsel
+! CNCHECK,adjust !close all contacts
+! CNCHECK,AUTO
+! CNCHECK,DMP !- Split contact pairs in the beginning of the solution (SOLVE).
+!!! Load
+! Solver settings + outres policy + GSBDATA (shared across all BC decks)
+/inp,5-BC-solver-settings,inp
+
+y_strain = 5!%
+
+! uyfinal = -y_cab*2*n_stacks*y_strain/100 !-0.88e-3  ! final displacement in Y direction
+! uxfinal =0! 0.1e-3  ! final displacement in X direction
+!!! displacement on nset_top on node set
+
+n_timesteps =11 ! number of time steps to distribute the load over
+
+
+! Create a 1D array of length 10
+*dim,myArray,array,n_timesteps
+
+! Assign values directly
+myArray(1) = 0.2
+myArray(2) = 0.5
+myArray(3) = 0.35
+myArray(4) = 0.5
+myArray(5) = 1
+myArray(6) = 0.8
+myArray(7) = 1
+myArray(8) = 1.5
+myArray(9) = 1.3
+myArray(10) = 1.5
+myArray(11) = 2
+
+*do,timestep,1,n_timesteps
+    TIME, timestep
+    ! NSUB, 10. 
+    ! DELTIM, 0.1
+    ! AUTOTS, OFF   !Specifies whether to use automatic time stepping or load stepping.
+    ! load in Y 
+    CMSEL, s, nset_top, node 
+    ! displacement_y = uyfinal*timestep/n_timesteps  ! distribute displacement over 3 steps
+    displacement_y = -myArray(timestep)*y_cab*2*n_stacks/100  ! distribute displacement over 3 steps
+    D,nset_top,UY,displacement_y, , , , , , , ,   !!! displacement controlled on nodes 
+
+    ! CMSEL,s,nset_left,node
+    ! displacement_x = uxfinal*timestep/n_timesteps  ! distribute displacement over 3 steps
+    ! D,nset_left,Ux,displacement_x, , , , , , , ,   !!! displacement controlled on nodes 
+
+    !D,nset_top,UY,-.289e-3, , , , , , , ,   !!! displacement controlled on nodes
+    alls
+
+    SOLVE
+    /COM,Finished solve for timestep %timestep% of %n_timesteps%
+     
+*enddo
+
+

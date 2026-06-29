@@ -1,0 +1,93 @@
+! /POST1
+! SET,LAST  ! Use the last load step and substep
+! allsel
+! eplot
+
+! /input,4-PP-postprocess_new,inp
+/POST1                                ! Postprocessing in POST1
+cmsel,s,nset_top,node                  ! Select top nodes
+*VGET,n_top_index, NODE,,NLIST   ! Store selected node numbers into array
+
+cmsel,s,nset_left,node
+*VGET,n_left_index, NODE,,NLIST   ! Store selected node numbers into array
+
+
+
+! *GET, nb_top_layer, NODE, 0, COUNT    ! Number of selected top nodes
+
+
+
+/DELETE,'pp/fd_temp_%usecase%','txt'
+*cfopen,'pp/fd_temp_%usecase%','txt',,'append'
+
+*VWRITE,'Set', 'Time (s)', 'UY (mm)', 'FY_total top (N)', 'UX (mm)', 'Fx_total left (N)'
+(A6,2X,A12,2X,A12,2X,A16,2X,A16,2X,A16)
+*cfclos
+
+variable_temp1 = 0
+variable_temp2 = 0
+variable_temp3 = 0
+
+*DO,K,1,n_timesteps
+    *cfopen,'pp/fd_temp_%usecase%','txt',,'append'
+    SET,K
+    ! Get time for this set
+    *GET, variable_temp1, ACTIVE, 0, SET, TIME
+
+    allsel
+    cmsel,s,nset_top,node  
+    ! Get UY for first node in n_top_index array
+    *GET, variable_temp2, NODE, n_top_index(2), U, Y
+                ! Select top nodes
+    FSUM
+    *GET,variable_temp3,FSUM,0,ITEM,FY
+
+
+    allsel
+    cmsel,s,nset_left,node 
+    *GET, variable_temp4, NODE, n_left_index(1), U, X
+    FSUM
+    *GET, variable_temp5, FSUM, 0, ITEM, FX
+
+
+    ! ! Sum FY for all top nodes
+    ! variable_temp3 = 0
+    ! *DO,J,1,nb_top_layer
+    !     *GET, fy_j, NODE, n_top_index(J), RF, Y
+    !     variable_temp3 = variable_temp3 + fy_j
+    ! *ENDDO
+
+    *VWRITE,K,variable_temp1, variable_temp2, variable_temp3, variable_temp4, variable_temp5
+    (F5.2,2X,E12.5,2X,E12.5,2X,E16.10,2X,E16.10,2X,E16.10)
+    *cfclos
+*ENDDO
+
+!*cfclos  ! Close the file
+
+
+! ! Loop over all selected nodes to sum FY
+! *DO, J, 1, nb_top_layer
+	! RFORCE,3,n_top_index(J),F,Y,!FY_j     ! Define FY variable for node J (var #3)
+	! VGET,Fy_temp(1),3                   ! Get time-history into Fy_temp array
+
+	! *DO, ist, 1, step_nb
+		! Fy_total(ist) = Fy_total(ist) + Fy_temp(J)
+	! *ENDDO
+! *ENDDO
+
+! h_sample = (2*n_stacks)*y_cab
+! *DO, ist, 1, step_nb
+	! _A(ist,3) = Fy_total(ist) ! [N]
+! *ENDDO
+
+
+! !!!! new 
+! /DELETE,'fd_temp','txt'
+! *cfopen,'fd_temp','txt',,'append'
+
+! *vwrite,
+! ('time (s)	', 'displacement UY (mm)	','Stress sig_Y (MPa)		','displacement Ux (mm)')
+
+! *VWRITE, _A(0,0), _A(0,1), _A(0,2),  _A(0,3)
+! %G, %G, %G, %G
+! *cfclos  ! Close the file

@@ -1,0 +1,68 @@
+! Model of rutherfords cable
+! Joep Van den Eijnden
+! 23/10/2024
+! /INPUT,0-start,inp
+
+FINISH  
+/CLEAR,START
+
+n_strands = 34
+n_stacks = 10
+side_support = 0 !1
+one_area_impreg = 0 !
+
+! formulation: 1 = generalized plane strain + mixed u-P (default, magnet operating physics).
+!              0 = plane stress (KEYOPT(3)=0, no u-P, no GSGDATA/GSBDATA) -- matches Zwick test.
+! Patched at runtime by main.py copy_cablestack_files from cable_parameters_user.json.
+formulation = 1
+
+usecase = 'R2D2_LF_restart'
+
+
+!half size of cable
+!x_cab = 5.1e-3
+!y_cab = 0.93e-3 !
+
+! x_cab = 6.502e-3
+x_cab = 6.55e-3
+
+y_cab = 0.805e-3
+
+/title,submodel_cable_%n_strands%_%usecase%
+/filname,submodel_cable_%n_strands%_%usecase%,0
+
+/UNITS,SI
+
+/PREP7
+/FACET,FINE  
+
+/PNUM,KP,0
+/PNUM,LINE,0
+/PNUM,AREA,1
+/PNUM,VOLU,0
+/PNUM,NODE,0
+/PNUM,TABN,0
+/PNUM,SVAL,0
+/PNUM,DOMA,0
+/NUMBER,0   
+/PNUM,ELEM,0
+
+/RGB,INDEX,100,100,100, 0   
+/RGB,INDEX, 80, 80, 80,13   
+/RGB,INDEX, 60, 60, 60,14   
+/RGB,INDEX, 0, 0, 0,15  
+/REPLOT 
+
+! Physical definitions
+tref,293 
+
+
+/input,1-material_properties,inp
+/inp,2-geo,inp
+/inp,3-mesh,inp
+/inp,4-cont,inp
+
+! Build-only deck. All four loading stages live in 00-restart-*.inp files
+! and RESUME base.db. No BC, no SOLVE here.
+SAVE,base,db
+/eof

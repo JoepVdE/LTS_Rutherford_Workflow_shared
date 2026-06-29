@@ -1,0 +1,21 @@
+# Force LF for all scripts and text files
+* text=auto
+
+# Shell scripts must stay LF (run in Docker/Linux)
+*.sh text eol=lf
+
+# Python and APDL scripts: LF
+*.py text eol=lf
+*.inp text eol=lf
+*.k text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.svg text eol=lf
+
+# FreeCAD macros
+*.FCMacro text eol=lf
+
+# Binary files
+*.step binary

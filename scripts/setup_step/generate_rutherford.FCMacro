@@ -1,0 +1,284 @@
+"""
+Rutherford cable geometry — FreeCAD macro
+==========================================
+Generates one solid cylindrical strand per wire by sweeping a circle of
+diameter d along a BSpline path computed from the perimeter parametrisation.
+
+Coordinate mapping  (matches generate_rutherford.py)
+-----------------------------------------------------
+  FreeCAD X  =  cable x  (across the width)
+  FreeCAD Y  =  cable y  (through the thickness)
+  FreeCAD Z  =  cable z  (along the axis)
+
+The exported STEP file contains one solid per strand.
+"""
+
+import FreeCAD as App
+import Part
+import math
+import os
+import datetime
+import json
+
+# ── User parameters ────────────────────────────────────────────────────────────
+N         = 21      # total number of strands
+d         = 0.85    # strand diameter  [mm]
+Lp        = 64.0    # twist pitch      [mm]
+n_semi    = 2       # number of semi-twist pitches to generate
+gap_extra = 0.00    # extra clearance on top of the geometric minimum  [mm]
+
+cable_name = "RutherfordCable"
+
+# ── Derived geometry ───────────────────────────────────────────────────────────
+r = d / 2.0
+
+# Minimum pitch so that the chord between adjacent strands on the semicircular
+# edge equals d (just touching).  pitch_min = pi*d*(N-2)/(2*N)
+pitch_min = math.pi * d * (N - 2) / (2 * N)
+pitch = pitch_min + gap_extra          # centre-to-centre spacing on flat face
+gap   = pitch - d                      # effective gap (informational)
+
+Weff  = N * pitch / 2.0
+W     = Weff + d
+T     = 2.0 * d
+P     = 2.0 * Weff + 2.0 * math.pi * r
+
+L_semi  = Lp / N
+z_plot  = n_semi * L_semi
+
+print("-" * 55)
+print(f"  N      = {N} strands")
+print(f"  d      = {d:.3f} mm")
+print(f"  Lp     = {Lp:.1f} mm")
+print(f"  L_semi = {L_semi:.3f} mm")
+print(f"  z_plot = {z_plot:.3f} mm")
+print(f"  W      = {W:.3f} mm  x  T = {T:.3f} mm")
+print("-" * 55)
+
+# ── Perimeter parametrisation ──────────────────────────────────────────────────
+_s1 = Weff
+_s2 = Weff + math.pi * r
+_s3 = 2.0 * Weff + math.pi * r
+
+def perimeter_xy(s):
+    """Return (x, y) for arc-length s along the cable cross-section perimeter."""
+    s = s % P
+    if s < _s1:
+        return -Weff / 2.0 + s, r
+    elif s < _s2:
+        th = math.pi / 2.0 - (s - _s1) / r
+        return Weff / 2.0 + r * math.cos(th), r * math.sin(th)
+    elif s < _s3:
+        return Weff / 2.0 - (s - _s2), -r
+    else:
+        th = -math.pi / 2.0 - (s - _s3) / r
+        return -Weff / 2.0 + r * math.cos(th), r * math.sin(th)
+
+# ── FreeCAD document ───────────────────────────────────────────────────────────
+doc = App.newDocument(cable_name)
+
+try:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    script_dir = os.getcwd()
+
+output_dir = script_dir
+
+# ── Load plate placement parameters from cable_parameters.json ──────────────
+# Plates are placed stationary around the cable.
+# Velocities are set to 0 — to be defined later.
+
+_offset_from_cable   = 0.4          # gap between strand surface and left/right plate inner face [mm]
+_offset_from_cable_y = _offset_from_cable / 8  # gap for top/bottom plates — 1/8 of left/right
+_thickness           = 0.1          # plate thickness [mm]
+
+for _jf in [
+    os.path.join(script_dir, "cable_parameters.json"),
+    os.path.join(os.getcwd(), "cable_parameters.json"),
+]:
+    if os.path.exists(_jf):
+        with open(_jf) as _f:
+            _cp = json.load(_f)
+        _offset_from_cable   = _cp.get("offset_from_cable",   _offset_from_cable)
+        _offset_from_cable_y = _cp.get("offset_from_cable_y", _offset_from_cable / 8)
+        _thickness           = _cp.get("thickness",           _thickness)
+        # If calc_cable_params_sim already computed W_rutherford, use it directly
+        # (ensures macro and main workflow use identical geometry)
+        if "W_rutherford" in _cp:
+            W = _cp["W_rutherford"]
+            print(f"    W_rutherford overridden from JSON: {W:.4f} mm")
+        print(f"  Plate parameters read from {os.path.basename(_jf)}")
+        print(f"    offset_from_cable (left/right) = {_offset_from_cable} mm,  offset_from_cable_y (top/bottom) = {_offset_from_cable_y} mm,  thickness = {_thickness} mm")
+        break
+else:
+    print("  cable_parameters.json not found — using defaults")
+
+# Inner-face positions: strand outer surface + offset
+_y_inner = d       + _offset_from_cable_y  # top / bottom inner face  (d = strand diameter, not r)
+_x_inner = W / 2.0 + _offset_from_cable    # left  / right inner face
+
+velocity_y = 0.0   # TODO: define later
+velocity_x = 0.0   # TODO: define later
+
+print(f"  Plate_Top/Bottom inner face at y = ±{_y_inner:.4f} mm")
+print(f"  Plate_Left/Right inner face at x = ±{_x_inner:.4f} mm")
+
+# ── Build one solid per strand ─────────────────────────────────────────────────
+# Clipping box: spans generously in x/y, exactly [0, z_plot] in z.
+# Each loft is extruded slightly past both z-ends so the boolean gives a
+# clean flat cut at z=0 and z=z_plot (elliptical end faces, not circles).
+margin_xy = W                          # generous xy margin
+clip_box   = Part.makeBox(
+    W + 2 * margin_xy,
+    T + 2 * margin_xy,
+    z_plot,
+    App.Vector(-W / 2 - margin_xy, -T / 2 - margin_xy, 0)
+)
+
+z_margin  = d                          # extend loft past each end by one diameter
+Nz_loft   = 800                         # more sections → smoother loft, less self-intersection
+strand_shapes = []
+
+for n in range(N):
+    sections = []
+    for i in range(Nz_loft):
+        z_i  = -z_margin + (z_plot + 2 * z_margin) * i / (Nz_loft - 1)
+        s_i  = ((n / N + z_i / Lp) % 1.0) * P
+        xc, yc = perimeter_xy(s_i)
+        center = App.Vector(xc, yc, z_i)
+
+        # Local tangent via forward finite difference
+        eps  = (z_plot + 2 * z_margin) / (Nz_loft * 20)
+        s_f  = ((n / N + (z_i + eps) / Lp) % 1.0) * P
+        xf, yf = perimeter_xy(s_f)
+        tv   = App.Vector(xf - xc, yf - yc, eps)
+        tv.normalize()
+
+        # Circle perpendicular to local tangent — end faces will be ellipses
+        sections.append(Part.Wire(Part.makeCircle(r, center, tv)))
+
+    try:
+        loft  = Part.makeLoft(sections, True, False, False)
+        # Boolean intersection with clipping box → flat z=0 and z=z_plot cuts
+        clipped = loft.common(clip_box)
+        if clipped.isNull() or not clipped.isValid():
+            raise RuntimeError("common() returned invalid shape")
+        obj         = doc.addObject("Part::Feature", f"Strand_{n:02d}")
+        obj.Shape   = clipped
+        strand_shapes.append(obj)
+        print(f"  Strand {n:02d} / {N-1}  ok")
+    except Exception as e:
+        print(f"  Strand {n:02d}: failed — {e}")
+
+doc.recompute()
+print(f"\n  {len(strand_shapes)} strands created.")
+
+# ── Bounding-box plates ───────────────────────────────────────────────────────
+# Four thin solid slabs surrounding the cable cross-section.
+# Cross-section extents:  x ∈ [-W/2, +W/2],  y ∈ [-r, +r]  (r = d/2)
+#
+#   Plate_Top    : sits at y = +r, compresses downward  → velocity -Y
+#   Plate_Bottom : sits at y = -r, compresses upward    → velocity +Y
+#   Plate_Right  : sits at x = +W/2, compresses inward  → velocity -X
+#   Plate_Left   : sits at x = -W/2, compresses inward  → velocity +X
+
+# ── Bounding-box plates ───────────────────────────────────────────────────────
+# Plate face dimensions match the uncompressed strand extents (W × T).
+# Plate thickness = _thickness (from cable_parameters.json).
+# Inner face placed at strand_surface + offset_from_cable.
+# Velocities are 0 (stationary) — to be defined separately.
+
+plate_t = _thickness
+# top/bottom plates span full W, side plates span T — both include offset on each side
+top_w  = W + 2 * (_offset_from_cable + plate_t)   # left/right overhang to close corners
+side_h = T + 2 * (_offset_from_cable + plate_t)
+
+# Plate_Top  : bottom face (inner) at y = r + margin
+#              top    face (outer) at y = r + margin + thickness
+# Plate_Bottom: top   face (inner) at y = -(r + margin)
+#               bottom face (outer) at y = -(r + margin + thickness)
+# Plate_Right : left  face (inner) at x = W/2 + margin
+#               right face (outer) at x = W/2 + margin + thickness
+# Plate_Left  : right face (inner) at x = -(W/2 + margin)
+#               left  face (outer) at x = -(W/2 + margin + thickness)
+
+plate_defs = [
+    (
+        "Plate_Top",
+        # origin y = _y_inner  (= r + margin)  →  top face at y = _y_inner + plate_t
+        Part.makeBox(top_w, plate_t, z_plot, App.Vector(-top_w / 2,           _y_inner,            0)),
+        "Y",  -velocity_y,
+    ),
+    (
+        "Plate_Bottom",
+        # origin y = -_y_inner - plate_t        →  top face at y = -_y_inner  (= -(r + margin))
+        Part.makeBox(top_w, plate_t, z_plot, App.Vector(-top_w / 2, -_y_inner - plate_t,            0)),
+        "Y",  +velocity_y,
+    ),
+    (
+        "Plate_Right",
+        # origin x = _x_inner  (= W/2 + margin) →  right face at x = _x_inner + plate_t
+        Part.makeBox(plate_t, side_h, z_plot, App.Vector( _x_inner,           -_y_inner - plate_t, 0)),
+        "X",  -velocity_x,
+    ),
+    (
+        "Plate_Left",
+        # origin x = -_x_inner - plate_t         →  right face at x = -_x_inner  (= -(W/2 + margin))
+        Part.makeBox(plate_t, side_h, z_plot, App.Vector(-_x_inner - plate_t, -_y_inner - plate_t, 0)),
+        "X",  +velocity_x,
+    ),
+]
+
+plate_objects = []
+print("")
+for name, shape, axis, vel in plate_defs:
+    obj       = doc.addObject("Part::Feature", name)
+    obj.Shape = shape
+    plate_objects.append(obj)
+    sign = "+" if vel >= 0 else "-"
+    print(f"  {name:15s}  velocity {sign}{axis} = {abs(vel):.3f} mm/s")
+
+doc.recompute()
+print(f"\n  {len(plate_objects)} bounding-box plates added.")
+
+# ── Export STEP ────────────────────────────────────────────────────────────────
+valid        = [o for o in strand_shapes if o.Shape.isValid() and not o.Shape.isNull()]
+valid_plates = [o for o in plate_objects  if o.Shape.isValid() and not o.Shape.isNull()]
+all_export   = valid + valid_plates
+
+if all_export:
+    step_file = os.path.join(output_dir, f"{cable_name}.step")
+    Part.export(all_export, step_file)
+    print(f"  STEP exported  ->  {step_file}")
+
+    # Summary text
+    summary_file = os.path.join(output_dir, f"{cable_name}_summary.txt")
+    with open(summary_file, "w") as f:
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"Rutherford Cable Geometry Summary\n")
+        f.write("=" * 50 + "\n")
+        f.write(f"Generated  : {ts}\n\n")
+        f.write(f"N_strands  : {N}\n")
+        f.write(f"d          : {d:.4f} mm\n")
+        f.write(f"Lp         : {Lp:.2f} mm\n")
+        f.write(f"L_semi     : {L_semi:.4f} mm\n")
+        f.write(f"z_plot     : {z_plot:.4f} mm\n")
+        f.write(f"W (outer)  : {W:.4f} mm\n")
+        f.write(f"T (outer)  : {T:.4f} mm\n")
+        f.write(f"Strands OK : {len(valid)}\n")
+        f.write(f"Plates     : {len(valid_plates)}\n")
+        f.write(f"\nPLATE VELOCITIES\n")
+        f.write("-" * 30 + "\n")
+        for name, _, axis, vel in plate_defs:
+            sign = "+" if vel >= 0 else "-"
+            f.write(f"  {name:15s}  {sign}{axis}  {abs(vel):.3f} mm/s\n")
+        f.write(f"\nSTEP file  : {cable_name}.step\n")
+    print(f"  Summary    ->  {summary_file}")
+else:
+    print("  No valid shapes to export.")
+
+print("-" * 55)
+print("Done.")
+
+import sys
+sys.exit(0)

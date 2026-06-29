@@ -1,0 +1,33 @@
+! ============================================================
+! 8-PP-thermal.inp  --  SKELETON, not yet implemented
+! ============================================================
+! Future content: extract the Nb3Sn axial-strain field after
+! cooldown so postprocess_thermal_cooldown() in analyse_pressure.py
+! can compute the Ic-relevant eps_zz distribution.
+!
+! Sketch of what should go here:
+!
+!   /POST1
+!   SET,LAST
+!
+!   ! Select Nb3Sn elements only (mat=3)
+!   esel,s,mat,,3
+!
+!   ! For each Nb3Sn element, dump centroid + eps_zz to a CSV.
+!   ! Use the NXTH cursor pattern (NOT *VGET,...,LOC,X with a
+!   ! selection -- see APDL gotchas in CLAUDE.md).
+!   *get, e_min, ELEM, 0, NUM, MIN
+!   *cfopen, pp/nb3sn_eps_zz_<usecase>, txt
+!     *vwrite
+!     ('elem_id, x, y, eps_zz [-]')
+!     ! ... loop via NXTH, *GET centroid via CENT,X/Y, eps_zz via ETABLE ...
+!   *cfclose
+!
+!   ! Also useful (GPS only): the uniform fiber-length change at the
+!   ! reference point -- this IS the mean eps_zz across the cross-section.
+!   GSLIST,RESULTS              ! prints fiber length change to .out
+! ============================================================
+
+/COM, ============================================================
+/COM, 8-PP-thermal.inp is a SKELETON -- Nb3Sn strain dump not implemented.
+/COM, ============================================================

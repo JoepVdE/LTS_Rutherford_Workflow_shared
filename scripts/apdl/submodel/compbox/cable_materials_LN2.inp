@@ -1,0 +1,103 @@
+! ============================================================================
+! Canonical cable material set @ LN2 (4.3 K operating, 77 K measurement basis)
+! ============================================================================
+! Single source of truth for: cablestack_simulation, submodel_simulation.
+! Box simulation does NOT use this -- it has homogenized conductor properties
+! (Mat 11 = "Inner coil" FCC) defined inline in CompBox_mech_*.inp.
+!
+! Material IDs:
+!   1 - Impregnation (epoxy or wax; selectable via `impreg` *SET before /INPUT)
+!   2 - Copper (annealed, OFHC)
+!   3 - Nb3Sn (homogenised interfilamentary)
+!   4 - Insulation (G11 or wax-based)
+!   5 - Steel
+!
+! Caller pattern in any *.inp deck:
+!     impreg = 4                       ! 1=Epoxy@RT, 2=Wax@RT, 3=Epoxy@LN2, 4=Wax@LN2
+!     /INPUT,cable_materials_LN2,inp,../../shared/materials/,, 0
+!
+! Source notes:
+!   - Cu prxy = 0.34, Cu NLISO/VOCE = 5e6, 0, 251.67e6, 10.85
+!     measured by Joep, Annealed Cu @ LN2, 2025-08-21, true-stress / true-strain.
+!     (The 475e6/5.49 set in some old decks is the RT companion -- do NOT use here.)
+!   - Nb3Sn ex=70 GPa: the SMACC_HF standard, the basis of the 1.2
+!     current-amplification factor (Joep 2026-06-11). CD1-era runs used
+!     100 GPa (Daly 2018).
+!   - Insulation G11@LN2 18 GPa is the wax-based value;
+!     swap to 7 GPa for G11@RT or 13.3 GPa for an alternative LN2 estimate.
+! ============================================================================
+
+tbdele,all,all
+
+
+
+! ----------------------------------------------------------------------------
+! Mat 1: Impregnation -- branch on `impreg` set by caller
+! ----------------------------------------------------------------------------
+*IF, impreg, EQ, 1, THEN
+    ! Epoxy @ RT
+    mp, ex, 1, 3.8E9
+    mp, prxy, 1, 0.28
+    TB,BISO,1,1,2,
+    TBDATA,,130E6,10E6
+
+*ELSEIF, impreg, EQ, 2, THEN
+    ! Wax @ RT
+    mp, ex, 1, 2.0E9
+    mp, prxy, 1, 0.28
+    TB,BISO,1,1,2,
+    TBDATA,,7E6,10E6
+
+*ELSEIF, impreg, EQ, 3, THEN
+    ! Epoxy @ LN2
+    mp, ex, 1, 7.0E9
+    mp, prxy, 1, 0.28
+    TB, PLAS, 1, 2, , BISO
+    TBDATA,,400E6,10E6   ! yield 400 MPa, tangent 10 MPa (matches one_turn / runfolder reference)
+
+*ELSE
+    ! Wax @ LN2  (default -- production baseline)
+    ! E = 18 GPa is intentionally identical to Mat 4 insulation E below: the
+    ! impregnation is the same wax-based composite the insulation block is
+    ! made of (per Joep, 2026-06-04). Plasticity left disabled -- wax stays
+    ! pre-yield under the loads in this study.
+    mp, ex, 1, 18E9
+    mp, prxy, 1, 0.30
+    ! TB,BISO,1,1,2,
+    ! TBDATA,,100E6,10E6
+*ENDIF
+
+
+! ----------------------------------------------------------------------------
+! Mat 2: Copper -- annealed OFHC @ LN2 (2025-08-21 measurement)
+! ----------------------------------------------------------------------------
+mp, ex, 2, 130E9
+mp, prxy, 2, 0.34                              ! per Joep 2026-06-03 directive
+TB, NLISO, 2, 2, , VOCE
+TBDATA,, 5.e6, 0., 251.67e6, 10.85             ! Annealed Cu @ LN2, 2025-08-21
+
+
+! ----------------------------------------------------------------------------
+! Mat 3: Nb3Sn -- homogenised interfilamentary
+! SMACC_HF: 70 GPa -- this is the value the 1.2 current-amplification factor
+! (and hence the 70 GPa box Mat 11 homogenised conductor) is based on.
+! Keep the two consistent. (Was 100E9, Daly 2018, in the CD1 campaign.)
+! ----------------------------------------------------------------------------
+mp, ex, 3, 70E9
+mp, prxy, 3, 0.36
+! TB, PLAS, 3, 2, , BISO
+! TBDATA,,400E6,10E6
+
+
+! ----------------------------------------------------------------------------
+! Mat 4: Insulation -- G11 / wax-based @ LN2
+! ----------------------------------------------------------------------------
+mp, ex, 4, 18.E9                               ! measured G11 @ LN2
+mp, prxy, 4, 0.3
+
+
+! ----------------------------------------------------------------------------
+! Mat 5: Steel -- 316L proxy
+! ----------------------------------------------------------------------------
+mp, ex, 5, 250E9
+mp, prxy, 5, 0.3

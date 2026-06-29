@@ -1,0 +1,495 @@
+! ==============================
+! ==== boundary conditions =====
+! ==============================
+allsel
+
+SELTOL, 1.E-7
+!!! node set 
+lsel,s,loc,y,-y_cab-thickness_steel
+NSLL,s,1
+cm,nset_bot,node
+
+allsel
+cmsel,s,pusher
+LSLA,s
+lsel,r,loc,y,y_cab+thickness_steel
+lplot
+cm,pusher_top,line
+
+
+
+! apply BC 
+alls
+CMSEL, s, nset_bot, node 
+D, nset_bot, Ux, 0
+D, nset_bot, Uy, 0
+/solu
+
+! <<<COMPBOX_LOADING_BLOCK_START>>>
+! This block is REPLACED at staging time by compbox_stage.py, generated from
+! the measurement table (compression_box.measurement_file). The values below
+! are the BOX9 (SMACC_HF) reference schedule and only apply to hand-runs of
+! this template.
+! Number of timesteps
+*set,nsteps,28
+
+! Define current array for different timesteps
+*DIM,totalCurr,array,nsteps
+totalCurr(1)  = 24681.5
+totalCurr(2)  = 24681.5
+totalCurr(3)  = 24543
+totalCurr(4)  = 25031
+totalCurr(5)  = 24252
+totalCurr(6)  = 24428.5
+totalCurr(7)  = 24410
+totalCurr(8)  = 24630
+totalCurr(9)  = 24185
+totalCurr(10) = 24492
+totalCurr(11) = 24199
+totalCurr(12) = 24594
+totalCurr(13) = 23963
+totalCurr(14) = 24407
+totalCurr(15) = 23360
+totalCurr(16) = 24379
+totalCurr(17) = 23185
+totalCurr(18) = 24308
+totalCurr(19) = 22934
+totalCurr(20) = 24026
+totalCurr(21) = 22134
+totalCurr(22) = 23943
+totalCurr(23) = 21704
+totalCurr(24) = 23809
+totalCurr(25) = 20628
+totalCurr(26) = 23983
+totalCurr(27) = 20119
+totalCurr(28) = 23151
+
+! Pusher pressure schedule - interleaved LOAD/UNLOAD pairs, mirrors box9_loading.inp.
+! Odd steps (1, 3, 5, ..., 27): load peaks (BOX9.txt row pressures).
+! Even steps (2, 4, 6, ..., 28): unload back to the 39.9 MPa baseline.
+! Unload steps carry the MEASURED after-unload Ic (BOX9.txt column 3) since
+! BOX9 shows real unloaded-Ic degradation (unlike BOX6 where it was ~constant).
+! Produces two Ic curves vs peak pressure: under-load and after-unload-to-39.9.
+*DIM,pres_pusher,array,nsteps
+pres_pusher(1)  =  39.9*1e6
+pres_pusher(2)  =  39.9*1e6
+pres_pusher(3)  =  49.9*1e6
+pres_pusher(4)  =  39.9*1e6
+pres_pusher(5)  =  60.0*1e6
+pres_pusher(6)  =  39.9*1e6
+pres_pusher(7)  =  70.0*1e6
+pres_pusher(8)  =  39.9*1e6
+pres_pusher(9)  =  80.0*1e6
+pres_pusher(10) =  39.9*1e6
+pres_pusher(11) =  89.9*1e6
+pres_pusher(12) =  39.9*1e6
+pres_pusher(13) =  99.9*1e6
+pres_pusher(14) =  39.9*1e6
+pres_pusher(15) = 119.8*1e6
+pres_pusher(16) =  39.9*1e6
+pres_pusher(17) = 139.8*1e6
+pres_pusher(18) =  39.9*1e6
+pres_pusher(19) = 159.7*1e6
+pres_pusher(20) =  39.9*1e6
+pres_pusher(21) = 179.6*1e6
+pres_pusher(22) =  39.9*1e6
+pres_pusher(23) = 199.6*1e6
+pres_pusher(24) =  39.9*1e6
+pres_pusher(25) = 224.7*1e6
+pres_pusher(26) =  39.9*1e6
+pres_pusher(27) = 249.5*1e6
+pres_pusher(28) =  39.9*1e6
+! <<<COMPBOX_LOADING_BLOCK_END>>>
+
+
+
+
+
+
+
+nropt,unsymmetric   !! Newton-Raphson options for unsymmetric analysis
+neqit,100           !! max equilibrium iters before cutback (was 50) -- more chances on unload
+nlgeom,on           !! large-deflection on
+AUTOTS, ON          !! auto time-stepping
+DELTIM,0.1,0.01,0.5,ON !! init 0.1, min 0.01, max 0.5 -- bigger initial than 0.05, lets substeps grow
+LNSRCH,ON           !! line search -- helps non-monotone convergence on unload transitions
+CUTCONTROL,PLSLIMIT,1
+
+
+! cmsel,s,pusher_top
+! SFL,all,PRES,150E6 !Pa compression
+
+n_strands = 21
+
+! Production schedule: FULL LOAD+UNLOAD (28 steps, interleaved). Odd steps are
+! load peaks, even steps unload back to 39.9 MPa, mirroring the BOX9 experiment
+! (SMACC_HF cable). To stop the schedule earlier for debugging (e.g. after the
+! 99.9 MPa pair), reduce nsteps below - pairs stay intact for even values.
+! *set,nsteps,14
+
+!Solve loop
+*DO,i_time,1,nsteps
+
+    total_current = totalCurr(i_time)
+    loading_pres = pres_pusher(i_time) !Pa
+    strand_current = total_current/n_strands
+
+
+
+
+
+    ! Load APDL arrays from generated input file
+    i_file = i_time - 1
+    /INPUT,nb3sn_combined_data_case_%icase%_%i_time-1%,inp
+    
+    ! Arrays are now available:
+    ! Strand_Number(1:21) - Strand numbers (1-21)
+    ! Group_ID(1:21) - Group IDs (10000-12000 series)  
+    ! Center_X_m(1:21) - X coordinates of polygon centers (meters)
+    ! Center_Z_m(1:21) - Z coordinates of polygon centers (meters)
+    ! Interfilamentary_Area_m2(1:21) - Interfilamentary areas (m^2)
+    ! Bx_T(1:21) - X-component of magnetic field (Tesla)
+    ! By_T(1:21) - Y-component of magnetic field (Tesla)
+    ! Bz_T(1:21) - Z-component of magnetic field (Tesla)
+    ! B_magnitude_T(1:21) - Total magnetic field magnitude (Tesla)
+
+    !first_row = A(1, :)   ! row 1, all columns
+    !first col = A(:, 1)   ! all rows, column 1
+    allsel
+    FDELE,all,all !delete all forces 
+    SFDELE,all,all
+
+
+    *DO,i_strand,1,n_strands
+
+        cmsel,s,m_1_%i_strand%
+        allsel,below,area
+
+        *set,area_strand,Interfilamentary_Area_m2(i_strand)
+        *set,bx,Bx_T(i_strand)
+        *set,by,By_T(i_strand)
+        *set,bz,Bz_T(i_strand)
+        *set,bmag,B_magnitude_T(i_strand)
+
+        *SET,Fx,-bz*strand_current/area_strand ! Pa
+        *SET,Fy,-bx*strand_current/area_strand ! Pa
+        *SET,Fz,0
+
+
+
+        BFE,all,FORC,1,Fx,Fy,Fz
+    
+
+
+    *ENDDO
+
+    allsel
+    cmsel,s,pusher_top
+    SFL,all,PRES,loading_pres
+
+    time,i_time
+    outres, ALL, LAST                   !!! one record per load step end -- keeps
+                                        !!! .rst at ~1/NxALL size for N substeps;
+                                        !!! 6-PP-submodel only ever calls SET,i
+                                        !!! (load-step granularity), so we don't
+                                        !!! need substep history. 2026-06-09.
+    SOLVE
+
+*ENDDO
+
+/eof
+
+allsel
+TIME, 1
+
+SOLVE
+/eof
+
+
+! *DIM,A,ARRAY,21,9,
+! ! *VREAD,A,nbsn_combined_data,csv,,,,,,1
+! ! *DIM,A,ARRAY,21,9           ! define 21 rows x 9 columns
+
+! *VREAD,A(1,1),'nbsn_combined_data','csv',,,,,,1
+! (F3.0,',',F5.0,',',E16.12,',',E16.12,',',E16.12,',',E16.12,',',E16.12,',',E16.12,',',E16.12)
+
+
+
+
+
+
+
+! Data structure in strand_data array:
+! Column 1: Strand_Number (1-21)
+! Column 2: Group_ID (10000-12000)
+! Column 3: Center_X_m
+! Column 4: Center_Z_m
+! Column 5: Interfilamentary_Area_m2
+! Column 6: Bx_T
+! Column 7: By_T
+! Column 8: Bz_T
+! Column 9: B_magnitude_T
+
+! ! Example: Print all data for verification
+! *DO,i,1,21
+!     strand_num = strand_data(i,1)
+!     group_id = strand_data(i,2)
+!     center_x = strand_data(i,3)
+!     center_z = strand_data(i,4)
+!     interf_area = strand_data(i,5)
+!     bx = strand_data(i,6)
+!     by = strand_data(i,7)
+!     bz = strand_data(i,8)
+!     b_mag = strand_data(i,9)
+    
+!     *MSG,INFO
+!     Strand %strand_num%: Group %group_id%, Center(%.4e, %.4e), Area %.4e, B(%.4e, %.4e, %.4e), |B|=%.4e
+!     %strand_num%,%group_id%,%center_x%,%center_z%,%interf_area%,%bx%,%by%,%bz%,%b_mag%
+! *ENDDO
+
+/eof
+
+
+
+
+
+
+
+SELTOL, 1.E-7
+!!! node set 
+allsel
+nsel,s,loc,y,-y_cab
+nsel,r,loc,x,-x_cab+1.e-6,x_cab-1.e-6
+cm,nset_bot,node
+
+allsel
+nsel,s,loc,x,x_cab
+cm,nset_right,node
+
+nsel,s,loc,x,-x_cab
+cm,nset_left,node
+
+
+allsel
+*IF,side_support,EQ,1,THEN
+    cmsel,u,left_side_support
+    cmsel,u,right_side_support
+    allsel,below,area
+*ENDIF
+
+nsel,r,loc,y,(2*n_stacks-1)*y_cab
+nsel,r,loc,x,-x_cab,x_cab
+
+cm,nset_top,node
+
+! apply BC 
+alls
+CMSEL, s, nset_left, node 
+D, nset_left, Ux, 0
+D, nset_left, Uy, 0
+
+
+
+
+
+
+
+
+allsel
+asel,none
+cmsel,none
+
+Itotal = 20e3
+i_strand = Itotal/n_strands
+
+*DO,i,1,n_strands
+    cmsel,s,m_1_%i%
+    allsel,below,area
+
+    bx = bx(i)
+    by = by(i)
+
+    area_strand - area(i)
+
+
+    Fx = -20000/(0.0085*0.0085) ! Pa
+    Fy = 0
+    Fz = 0
+    BFE,all,FORC,1,Fx,Fy,Fz
+
+*ENDDO
+
+
+
+
+
+
+
+
+allsel
+! CNCHECK,adjust !close all contacts
+! CNCHECK,AUTO
+! CNCHECK,DMP !- Split contact pairs in the beginning of the solution (SOLVE).
+!!! Load 
+!! Solution
+/solu
+! nropt,full          !! specifies the Newton-Raphson options in a static or full transient analysis
+nropt,unsymmetric   !! specifies the Newton-Raphson options in a unsymmetric analysis
+neqit,50           !! specifies the maximum number of equilibrium iterations for nonlinear analyses
+nlgeom,on          !! includes large-deflection effects in a static or full transient analysis
+! AUTOTS,OFF
+
+!!! Joep - pressure load on line set 
+! alls
+! loading_pres = 150E6 !Pa
+! alls
+! /title,%loading_pres/1e6% MPa compression constrained
+! allsel
+! lsel,s,,,15996
+! SFL,all,PRES,loading_pres
+! time, 1
+! NSUB, 10.
+AUTOTS, ON   !Specifies whether to use automatic time stepping or load stepping.
+DELTIM,0.05,,,ON  !ON
+!outres, ALL, ALL                    !!! output everything to results file 
+!solve
+
+CUTCONTROL,PLSLIMIT,1
+
+
+TIME, 1
+SOLVE
+
+/POST1
+allsel
+SET,1
+PLNSOL,U,SUM
+/EOF
+
+
+! CMSEL, s, nset_right, node 
+! D, nset_right, Ux, 0
+
+! CMSEL, s, nset_bot, node 
+! D, nset_bot, Uy, 0
+! D, nset_bot, Ux, 0
+
+! CMSEL,s,nset_top,node
+! ! D, nset_top, Uy, 0
+! ! D, nset_bot, Ux, 0
+
+
+!SIDE SUPPORT BC
+*IF,side_support,EQ,1,THEN
+
+    allsel
+    cmsel,none
+    asel,none
+
+
+
+    cmsel,s,left_side_support
+    cmsel,a,right_side_support
+
+
+    allsel,belo,area
+
+    cmsel,u,nset_top
+    D, all, Uy, 0
+    D, all, Ux, 0
+
+
+
+*ENDIF
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Close contacts!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! allsel
+! ! esel,u,,,n_conta_sidewall
+! CNCHECK,adjust !close all contacts 
+! R,n_conta_sidewall,,,, ,, 
+! RMORE,,,,-50e-6, ,
+
+! CNCHECK,MORPH
+allsel
+! CNCHECK,adjust !close all contacts
+! CNCHECK,AUTO
+! CNCHECK,DMP !- Split contact pairs in the beginning of the solution (SOLVE).
+!!! Load 
+!! Solution
+/solu
+! nropt,full          !! specifies the Newton-Raphson options in a static or full transient analysis
+nropt,unsymmetric   !! specifies the Newton-Raphson options in a unsymmetric analysis
+neqit,50           !! specifies the maximum number of equilibrium iterations for nonlinear analyses
+nlgeom,on          !! includes large-deflection effects in a static or full transient analysis
+! AUTOTS,OFF
+
+!!! Joep - pressure load on line set 
+! alls
+! loading_pres = 150E6 !Pa
+! alls
+! /title,%loading_pres/1e6% MPa compression constrained
+! allsel
+! lsel,s,,,15996
+! SFL,all,PRES,loading_pres
+! time, 1
+! NSUB, 10.
+AUTOTS, ON   !Specifies whether to use automatic time stepping or load stepping.
+DELTIM,0.05,,,ON  !ON
+!outres, ALL, ALL                    !!! output everything to results file 
+!solve
+
+CUTCONTROL,PLSLIMIT,1
+
+y_strain = 5!%
+
+! uyfinal = -y_cab*2*n_stacks*y_strain/100 !-0.88e-3  ! final displacement in Y direction
+! uxfinal =0! 0.1e-3  ! final displacement in X direction
+!!! displacement on nset_top on node set
+
+n_timesteps =11 ! number of time steps to distribute the load over
+
+
+! Create a 1D array of length 10
+*dim,myArray,array,n_timesteps
+
+! Assign values directly
+myArray(1) = 0.2
+myArray(2) = 0.5
+myArray(3) = 0.35
+myArray(4) = 0.5
+myArray(5) = 1
+myArray(6) = 0.8
+myArray(7) = 1
+myArray(8) = 1.5
+myArray(9) = 1.3
+myArray(10) = 1.5
+myArray(11) = 2
+
+
+
+*do,timestep,1,n_timesteps
+    TIME, timestep
+    ! NSUB, 10. 
+    ! DELTIM, 0.1
+    ! AUTOTS, OFF   !Specifies whether to use automatic time stepping or load stepping.
+    ! load in Y 
+    CMSEL, s, nset_top, node 
+    ! displacement_y = uyfinal*timestep/n_timesteps  ! distribute displacement over 3 steps
+    displacement_y = -myArray(timestep)*y_cab*2*n_stacks/100  ! distribute displacement over 3 steps
+    D,nset_top,UY,displacement_y, , , , , , , ,   !!! displacement controlled on nodes 
+
+    ! CMSEL,s,nset_left,node
+    ! displacement_x = uxfinal*timestep/n_timesteps  ! distribute displacement over 3 steps
+    ! D,nset_left,Ux,displacement_x, , , , , , , ,   !!! displacement controlled on nodes 
+
+    !D,nset_top,UY,-.289e-3, , , , , , , ,   !!! displacement controlled on nodes 
+    alls
+    
+    outres, ALL, ALL                    !!! output everything to results file
+    SOLVE
+    /COM,Finished solve for timestep %timestep% of %n_timesteps%
+     
+*enddo
+
+

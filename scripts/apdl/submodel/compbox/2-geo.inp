@@ -1,0 +1,251 @@
+/PREP7
+
+ET,1,PLANE183!,0,,1,,,0,
+keyopt,1,3,0 !0 plain stress, 1 axisymmetric, 2 plain strain, 3 plain stress with thickness input, 5 generalized plain strain
+! KEYOPT,1,1,3 !keyoption 1 is three (simplificied enhanced strain formulation)
+! PLANE182 2-D 4-Node Structural Solid 4 nodes 2-D space DOF: UX, UY
+
+! KEYOPT(1)
+! Element technology:
+! 0 -- Full integration with method
+! 1 -- Uniform reduced integration with hourglass control
+! 2 -- Enhanced strain formulation
+! 3 -- Simplified enhanced strain formulation
+
+! KEYOPT(3)
+! Element behavior:
+! 0 -- Plane stress
+! 1 -- Axisymmetric
+! 2 -- Plane strain (Z strain = 0.0)
+! 3 -- Plane stress with thickness input
+! 5 -- Generalized plane strain
+
+! KEYOPT(6)
+! Element formulation:
+! 0 -- Use pure displacement formulation (default)
+! 1 -- Use mixed u-P formulation (not valid with plane stress)
+
+
+
+mat,3
+stack_offset = 1e6
+
+
+! stack_nr = 1
+*DO,stack_nr,1,n_stacks
+
+    /INPUT,keypoints_nodes_%stack_nr%,txt
+    offset_area_between_strands = 100*(stack_nr)
+    ! numstr,area,offset_area_between_strands
+    ! /INPUT,keypoints_%stack_nr%,txt
+
+    allsel
+    offset_nodes_areas = 1e4
+
+    n_offset_current = 2e4+(stack_nr-1)*stack_offset
+    numstr,kp,n_offset_current
+    numstr,area,n_offset_current
+    n_offset_current=25e3+(stack_nr-1)*stack_offset
+    n_offset_impregnation = n_offset_current
+    numstr,area,n_offset_current
+
+
+    allsel
+
+    asel,s,,,offset_area_between_strands,offset_area_between_strands+99
+    i_sta = stack_nr
+    *DO,i_str,1,n_strands
+        ! *DO,i_sta,1,n_stacks
+            cmsel,a,i_%i_sta%_%i_str%
+            cmsel,a,m_%i_sta%_%i_str%
+            cmsel,a,o_%i_sta%_%i_str%
+        ! *ENDDO
+    *ENDDO
+    aplot
+    cm,str_inner_imp_%stack_nr%,area !component generation of the strands and impregnation between the strands
+
+
+    /input,keypoints_insulation_nodes_%stack_nr%,txt
+
+
+
+    !25000 is entire area inside of the insulation
+    allsel
+    asel,s,,,25000+(stack_nr-1)*stack_offset
+
+
+    cm,area_in_ins_%stack_nr%,area
+
+    !25001 is the entire area following the outer edge of the insulation
+    allsel
+    asel,s,,,25001+(stack_nr-1)*stack_offset
+    cm,area_inc_ins_%stack_nr%,area
+
+
+    !generate insulation layer
+    n_offset_current=n_offset_current+1e3
+    n_offset_insulation = n_offset_current
+    numstr,area,n_offset_current
+
+
+
+    allsel
+    allsel,belo,area
+    asba,area_inc_ins_%stack_nr%,area_in_ins_%stack_nr%,sepo,keep,keep
+
+
+    asel,s,,,n_offset_insulation
+    cm,str_imp_%stack_nr%,area !insulation around the strands
+    allsel
+
+
+    btol,1e-7
+
+
+
+    !generate impregnation in between strands and insulation
+    n_offset_current = n_offset_current + 1e3
+    numstr,area,n_offset_current
+
+
+
+    ! ASBA,n_offset_impregnation,str_inner_imp_%stack_nr%,,delete,keep
+    allsel
+
+    cmsel,s,area_in_ins_%stack_nr%
+    cmsel,a,str_inner_imp_%stack_nr%
+    allsel,belo,area
+    asba,area_in_ins_%stack_nr%,str_inner_imp_%stack_nr%,sepo,delete,keep
+
+    asel,s,,,n_offset_current,n_offset_current+99
+
+    offset_impreg_%stack_nr% = n_offset_current
+
+    cm,out_imp_%stack_nr%,area !component generation of the all impregnation in the insulation
+
+
+
+    n_offset_current = n_offset_current + 1e3
+    ! n_offset_outer_impregnation = n_offset_current
+    ! numstr,area,n_offset_current
+    ! numstr,kp,n_offset_current
+
+
+
+
+    ! !generate rectangular outer layer
+    ! k,0,x_cab,y_cab+(stack_nr-1)*2*y_cab,0
+    ! k,0,-x_cab,y_cab+(stack_nr-1)*2*y_cab,0
+    ! k,0,-x_cab,-y_cab+(stack_nr-1)*2*y_cab,0
+    ! k,0,x_cab,-y_cab+(stack_nr-1)*2*y_cab,0
+
+    ! a,n_offset_outer_impregnation,n_offset_outer_impregnation+1,n_offset_outer_impregnation+2,n_offset_outer_impregnation+3
+
+    ! !substract to get stackable cable
+    ! allsel
+    ! ! asel,s,,,n_offset_impregnation+1
+    ! cmsel,s,area_inc_ins_%stack_nr%
+    ! asel,a,,,n_offset_outer_impregnation
+    ! alls,below,area
+
+
+
+
+    ! ASBA,n_offset_outer_impregnation,area_inc_ins_%stack_nr%,,delete,delete
+    ! cm,str_outer_imp_%stack_nr%,area
+
+*ENDDO
+
+n_offset_outer_impregnation = n_offset_current
+numstr,area,n_offset_current
+numstr,kp,n_offset_current
+!generate rectangular outer layer
+k,0,x_cab,y_cab+(stack_nr-1)*2*y_cab,0
+k,0,-x_cab,y_cab+(stack_nr-1)*2*y_cab,0
+k,0,-x_cab,-y_cab,0
+k,0,x_cab,-y_cab,0
+
+a,n_offset_outer_impregnation,n_offset_outer_impregnation+1,n_offset_outer_impregnation+2,n_offset_outer_impregnation+3
+
+!substract to get stackable cable
+allsel
+cmsel,none
+asel,none
+! asel,s,,,n_offset_impregnation+1
+*DO,stack_nr,1,n_stacks
+    cmsel,a,area_inc_ins_%stack_nr%
+*ENDDO
+
+alls,below,area
+
+asel,a,,,n_offset_outer_impregnation
+
+ASBA,n_offset_outer_impregnation,all,sepo,delete,delete
+cm,str_outer_imp,area
+
+
+
+thickness_steel = 6.6e-3
+n_offset_shell = n_offset_current+100
+numstr,area,n_offset_shell
+numstr,kp,n_offset_shell
+!generate rectangular outer layer
+k,0,x_cab+thickness_steel,y_cab+(stack_nr-1)*2*y_cab+thickness_steel,0
+k,0,-x_cab-thickness_steel,y_cab+(stack_nr-1)*2*y_cab+thickness_steel,0
+k,0,-x_cab-thickness_steel,-y_cab-thickness_steel,0
+k,0,x_cab+thickness_steel,-y_cab-thickness_steel,0
+
+a,n_offset_shell,n_offset_shell+1,n_offset_shell+2,n_offset_shell+3
+
+allsel
+asba,n_offset_shell,all,sepo,delete,keep
+
+k,0,x_cab,y_cab,0
+k,0,x_cab,y_cab+thickness_steel,0
+k,0,-x_cab,y_cab+thickness_steel,0
+k,0,-x_cab,y_cab,0
+a,n_offset_shell,n_offset_shell+1,n_offset_shell+2,n_offset_shell+3
+asel,s,,,n_offset_shell
+cm,pusher,area
+allsel
+allsel,belo,area
+
+asba,n_offset_shell+1,n_offset_shell,sepo,delete,keep
+asel,s,,,n_offset_shell+2
+cm,box_steel,area
+
+/eof
+
+
+
+!GENERATE SIDE SUPPORT
+*IF,side_support,EQ,1,THEN
+
+
+    side_thickness = 0.5e-3
+    n_offset_current = n_offset_current + 1e3
+    n_offset_side_support = n_offset_current
+    numstr,kp,n_offset_current
+    numstr,area,n_offset_current
+
+    asel,none
+    !generate side support
+    k,0,-x_cab,-y_cab,0
+    k,0,-x_cab,y_cab+(n_stacks-1)*2*y_cab,0
+    k,0,-x_cab-side_thickness,y_cab+(n_stacks-1)*2*y_cab,0
+    k,0,-x_cab-side_thickness,-y_cab,0
+
+    a,n_offset_current,n_offset_current+1,n_offset_current+2,n_offset_current+3
+    cm,left_side_support,area
+
+    asel,none
+
+    k,0,x_cab,-y_cab,0
+    k,0,x_cab,y_cab+(n_stacks-1)*2*y_cab,0
+    k,0,x_cab+side_thickness,y_cab+(n_stacks-1)*2*y_cab,0
+    k,0,x_cab+side_thickness,-y_cab,0
+
+    a,n_offset_current+4,n_offset_current+5,n_offset_current+6,n_offset_current+7
+    cm,right_side_support,area
+
+*ENDIF

@@ -1,0 +1,944 @@
+
+allsel
+eplot
+n_contact_element = 1000 !starting number for contact elements
+
+
+! Contacts elements between strands
+*DO,stack_nr,1,n_stacks
+    /input,contacts_strands_%stack_nr%,txt
+*ENDDO
+
+
+
+
+
+
+! n_contact_element = 1e4*n_strands !starting number for contact elements
+
+
+*DO,i_sta,1,n_stacks
+    /input,inner_insulation_lines_%i_sta%,txt
+    /input,outer_insulation_lines_%i_sta%,txt
+*ENDDO
+
+
+n_contact_element = 2e4  ! Reduced from 1e6
+
+! i_sta = 1
+! i_str = 1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!! Strand - impregnation
+!!!!! Strand - insulation
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+allsel
+eplot
+*DO,i_sta,1,n_stacks
+    *DO,i_str,1,n_strands
+        min_x_coor = 0
+        min_y_coor = 0
+        max_x_coor = 0
+        max_y_coor = 0
+
+
+        et,n_contact_element,CONTA172
+        KEYOPT,n_contact_element,1,0
+        KEYOPT,n_contact_element,9,1
+        KEYOPT,n_contact_element,12,2
+        mp,mu,n_contact_element,0.2
+        r,n_contact_element
+
+        et,n_contact_element+5000,TARGE169
+        real,n_contact_element
+        mat,n_contact_element
+
+
+        allsel
+        cmsel,none
+        asel,none
+
+        cmsel,a,i_%i_sta%_%i_str%
+        cmsel,a,m_%i_sta%_%i_str%
+        cmsel,a,o_%i_sta%_%i_str%
+
+        allsel,belo,area
+
+
+        margin = 0.05e-3 !0.1 mm margin for contact elements
+        *GET, min_x_coor, NODE, 0, MNLOC, X 
+        min_x_coor = min_x_coor - margin
+        *GET, min_y_coor, NODE, 0, MNLOC, Y
+        min_y_coor = min_y_coor - margin
+        *GET, max_x_coor, NODE, 0, MXLOC, X
+        max_x_coor = max_x_coor + margin
+        *GET, max_y_coor, NODE, 0, MXLOC, Y 
+        max_y_coor = max_y_coor + margin
+
+
+        type,n_contact_element
+        ! eplot 
+
+        esurf 
+
+
+
+
+
+
+        allsel
+        cmsel,none
+        asel,none
+
+        cmsel,a,out_imp_%i_sta%
+        ! cmsel,a,STR_IMP_%i_sta% !insulation       
+
+
+        allsel,belo,area
+
+        lsel,r,loc,x,min_x_coor,max_x_coor
+        lsel,r,loc,y,min_y_coor,max_y_coor
+        
+        NSLL,s,1
+        ESLN,s,0,all
+
+        type,5000+n_contact_element
+        esurf
+        allsel
+
+
+
+        n_contact_element=n_contact_element+1
+
+
+        et,n_contact_element,CONTA172
+        KEYOPT,n_contact_element,1,0
+        KEYOPT,n_contact_element,9,1
+        KEYOPT,n_contact_element,12,2
+        mp,mu,n_contact_element,0.2
+        r,n_contact_element
+
+        et,n_contact_element+5000,TARGE169
+        real,n_contact_element
+        mat,n_contact_element
+
+
+        allsel
+        cmsel,none
+        asel,none
+
+        cmsel,a,i_%i_sta%_%i_str%
+        cmsel,a,m_%i_sta%_%i_str%
+        cmsel,a,o_%i_sta%_%i_str%
+
+        allsel,belo,area
+
+        type,n_contact_element
+        ! eplot 
+        esurf 
+
+
+        allsel
+        cmsel,none
+        asel,none
+
+        ! cmsel,a,out_imp_%i_sta%
+        !cmsel,a,STR_IMP_%i_sta% !insulation
+        cmsel,s,inner_insulation_%i_sta%
+
+        LSLK,s,0
+
+        ! allsel,belo,area
+
+        lsel,r,loc,x,min_x_coor,max_x_coor
+        lsel,r,loc,y,min_y_coor,max_y_coor
+
+
+        
+        NSLL,s,1
+        ESLN,s,0,all
+
+        type,5000+n_contact_element
+        esurf
+        allsel
+
+        n_contact_element=n_contact_element+9
+
+    *ENDDO
+
+    n_contact_element = 2e4 + i_sta*6000 !reset contact element number for next stack
+*ENDDO
+
+
+
+
+allsel
+eplot
+
+n_contact_element = 12e4  ! Reduced from 2e6
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!impregnation to insulation
+
+!!!!!!!!!!!!!!!!!!!!!!!
+
+allsel
+*DO,i_sta,1,n_stacks
+    n_offset = offset_impreg_%i_sta%
+    *DO,i_impreg,1,n_strands*3
+        et,n_contact_element,CONTA172
+        KEYOPT,n_contact_element,1,0
+        KEYOPT,n_contact_element,9,1
+        KEYOPT,n_contact_element,12,3
+        mp,mu,n_contact_element,0.2
+        r,n_contact_element
+
+        et,n_contact_element+5000,TARGE169
+        real,n_contact_element
+        mat,n_contact_element
+
+
+        allsel
+        asel,none
+        asel,s,,,n_offset-1+i_impreg
+
+        allsel,belo,area
+
+
+        margin = 0.05e-3 !0.1 mm margin for contact elements
+        *GET, min_x_coor, NODE, 0, MNLOC, X 
+        min_x_coor = min_x_coor - margin
+        *GET, min_y_coor, NODE, 0, MNLOC, Y
+        min_y_coor = min_y_coor - margin
+        *GET, max_x_coor, NODE, 0, MXLOC, X
+        max_x_coor = max_x_coor + margin
+        *GET, max_y_coor, NODE, 0, MXLOC, Y 
+        max_y_coor = max_y_coor + margin
+
+
+        type,n_contact_element
+        ! eplot 
+
+        esurf 
+
+
+        allsel
+        cmsel,none
+        asel,none
+        lsel,none
+        ksel,none
+        cmsel,s,inner_insulation_%i_sta%
+        ! cmsel,a,STR_IMP_%i_sta% !insulation       
+
+        LSLK,s,0
+
+        lsel,r,loc,x,min_x_coor,max_x_coor
+        lsel,r,loc,y,min_y_coor,max_y_coor
+        
+        NSLL,s,1
+        ESLN,s,0,all
+
+        type,5000+n_contact_element
+        esurf
+        allsel
+        n_contact_element=n_contact_element+1
+
+
+    *ENDDO
+    n_contact_element = 12e4 + i_sta*6000 !reset contact element number for next stack
+
+*ENDDO
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Stack-to-stack bonding
+! COMMENTED OUT: NUMMRG in 3-mesh.inp merges coincident KPs at the interface;
+!                shared nodes enforce bonding geometrically -- no contact needed.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! n_contact_element = 22e4
+!
+! allsel
+!
+! *DO,i_sta,2,n_stacks
+!     et,n_contact_element,CONTA172
+!     KEYOPT,n_contact_element,1,0
+!     KEYOPT,n_contact_element,9,1
+!     KEYOPT,n_contact_element,12,3 ! (bonded)
+!     mp,mu,n_contact_element,0.2
+!     r,n_contact_element
+!
+!     et,n_contact_element+5000,TARGE169
+!     real,n_contact_element
+!     mat,n_contact_element
+!
+!     allsel
+!     cmsel,none
+!     asel,none
+!     lsel,none
+!     ksel,none
+!
+!     cmsel,a,outer_insulation_%i_sta% !insulation
+!     LSLK,s,0
+!     NSLL,s,1
+!     ESLN,s,0,all
+!
+!     type,n_contact_element
+!     esurf
+!
+!     allsel
+!     cmsel,none
+!     asel,none
+!     lsel,none
+!     ksel,none
+!
+!     cmsel,s,outer_insulation_%i_sta-1% !insulation
+!     LSLK,s,0
+!     NSLL,s,1
+!     ESLN,s,0,all
+!
+!     type,5000+n_contact_element
+!     esurf
+!     n_contact_element=n_contact_element+1
+!
+! *ENDDO
+!
+! allsel
+
+
+! n_contact_element = 23e4  ! Reduced from 4e6
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!bond insulation to impregnation outside
+! COMMENTED OUT: shared lines enforce bonding geometrically
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! et,n_contact_element,CONTA172
+! KEYOPT,n_contact_element,1,0
+! KEYOPT,n_contact_element,9,1
+! KEYOPT,n_contact_element,12,3 ! (bonded)
+! mp,mu,n_contact_element,0.2
+! r,n_contact_element
+!
+! et,n_contact_element+5000,TARGE169
+! real,n_contact_element
+! mat,n_contact_element
+!
+! allsel
+!
+! cmsel,none
+! asel,none
+! lsel,none
+! ksel,none
+! *DO,i_sta,1,n_stacks
+!     ! cmsel,a,STR_IMP_%i_sta% !insulation
+!     cmsel,a,outer_insulation_%i_sta% !insulation
+!
+! *ENDDO
+! LSLK,s,0
+! NSLL,s,1
+! ESLN,s,0,all
+! ! allsel,belo,area
+! type,n_contact_element
+! ! eplot
+! esurf
+!
+! allsel
+! cmsel,none
+! asel,none
+! cmsel,s,str_outer_imp
+!
+! allsel,belo,area
+! type,5000+n_contact_element
+! esurf
+! n_contact_element=n_contact_element+1
+
+/eof
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+! r_start = 1
+! r_max = n_contact_element
+
+
+! *do,i,r_start,r_max,1
+!     rmod,i,6,0.3 !Set 0.1 for the pinball region 
+! *enddo
+
+        ! cmsel,a,STR_IMP_%i_sta% !insulation
+
+/eof
+
+! allsel
+! cmsel,none
+! asel,none
+! cmsel,a,o_%i_sta%_%i_str%
+! allsel,belo,area
+
+
+! ! *GET, min_node_number, NODE, 0, NUM, MIN 
+! ! *GET, max_node_number, NODE, 0, NUM, MAX
+
+! *GET, min_x_coor, NODE, 0, MNLOC, X 
+! *GET, min_y_coor, NODE, 0, MNLOC, Y
+! *GET, max_x_coor, NODE, 0, MXLOC, X
+! *GET, max_y_coor, NODE, 0, MXLOC, Y 
+
+! *GET, max_node_number, NODE, 0, NUM, MAX
+
+! allsel
+! cmsel,none
+! asel,none
+! cmsel,a,
+! allsel,belo,area
+
+
+! y_max_loop = -100
+! y_min_loop = 100
+! x_max_loop = -100
+! x_min_loop = 100
+
+! *DO,i_loop,min_node_number,max_node_number
+!     *GET, x_to_comp, NODE, N, LOC, X
+!     *GET, y_to_comp, NODE, N, LOC, Y
+
+!     *IF, y_to_comp, GT, y_max_loop, THEN
+!         y_max_loop = y_to_comp
+!     *ENDIF
+!     *IF, y_to_comp, LT, y_min_loop, THEN
+!         y_min_loop = y_to_comp
+!     *ENDIF
+
+!     *IF, x_to_comp, GT, x_max_loop, THEN
+!         x_max_loop = x_to_comp  
+!     *ENDIF
+
+!     *IF, x_to_comp, LT, x_min_loop, THEN
+!         x_min_loop = x_to_comp
+!     *ENDIF
+
+! *ENDDO
+
+
+
+
+n_contact_element=100+(stack_nr-1)*stack_offset/10
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!strands_impregnation!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+*DO,i_sta,1,n_stacks
+
+
+    et,n_contact_element,CONTA172
+    KEYOPT,n_contact_element,1,0
+    KEYOPT,n_contact_element,9,1
+    KEYOPT,n_contact_element,12,2
+    mp,mu,n_contact_element,0.2
+    r,n_contact_element
+
+    et,n_contact_element+1000,TARGE169
+    real,n_contact_element
+    mat,n_contact_element
+
+
+    !!all strands
+    allsel
+    esel,none
+    cmsel,none
+    asel,none
+
+    *DO,i_str,1,n_strands
+        ! *DO,i_sta,1,n_stacks
+            cmsel,a,i_%i_sta%_%i_str%
+            cmsel,a,m_%i_sta%_%i_str%
+            cmsel,a,o_%i_sta%_%i_str%
+        ! *ENDDO
+    *ENDDO
+    allsel,belo,area
+    eplot 
+    esurf 
+    allsel 
+    !all impregnation selection
+
+    esel,none
+    asel,none
+    ! *DO,stack_nr,1,n_stacks
+    stack_nr = i_sta
+        cmsel,a,out_imp_%stack_nr%
+        ! cmsel,a,str_inner_imp_%stack_nr%
+        ! cmsel,u,wires_%stack_nr%
+    ! *ENDDO
+    allsel,belo,area
+    type,1000+n_contact_element
+    esurf
+    allsel
+
+
+
+    n_contact_element=n_contact_element+1
+
+*ENDDO
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!strands_insulation
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+*DO,i_sta,1,n_stacks
+
+    et,n_contact_element,CONTA172
+    KEYOPT,n_contact_element,1,0
+    KEYOPT,n_contact_element,9,1
+    KEYOPT,n_contact_element,12,2
+    mp,mu,n_contact_element,0.2
+    r,n_contact_element
+
+    et,n_contact_element+1000,TARGE169
+    real,n_contact_element
+    mat,n_contact_element
+
+
+    esel,none
+    !!all strands
+    allsel
+    esel,none
+    cmsel,none
+    asel,none
+
+    *DO,i_str,1,n_strands
+        cmsel,a,i_%i_sta%_%i_str%
+        cmsel,a,m_%i_sta%_%i_str%
+        cmsel,a,o_%i_sta%_%i_str%
+    *ENDDO
+    allsel,belo,area
+
+
+
+    type,n_contact_element 
+
+    esurf 
+    allsel 
+
+
+    asel,none
+    cmsel,none
+    ! *DO,stack_nr,1,n_stacks
+    stack_nr = i_sta
+    cmsel,a,STR_IMP_%stack_nr% !insulation
+    ! *ENDDO
+    ! asel,s,,,26000+(stack_nr-1)*stack_offset
+    allsel,belo,area
+    type,1000+n_contact_element
+    esurf
+    allsel
+
+
+
+    n_contact_element=n_contact_element+1
+
+*ENDDO
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!impregnation_inside_insulation!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*DO,stack_nr,1,n_stacks
+
+    et,n_contact_element,CONTA172
+    KEYOPT,n_contact_element,1,0
+    KEYOPT,n_contact_element,9,1
+    KEYOPT,n_contact_element,12,3
+    mp,mu,n_contact_element,0.2
+    r,n_contact_element
+
+    et,n_contact_element+1000,TARGE169
+    real,n_contact_element
+    mat,n_contact_element
+
+
+    ! asel,s,,,27000+(stack_nr-1)*stack_offset,27500+(stack_nr-1)*stack_offset
+    esel,none
+    asel,none
+    cmsel,a,out_imp_%stack_nr%
+        ! cmsel,a,str_inner_imp_%stack_nr%
+        ! cmsel,u,wires_%stack_nr%
+    ! *ENDDO    
+    allsel,belo,area
+    type,n_contact_element
+    esurf
+    allsel
+
+
+    allsel
+    ! asel,s,,,26000+(stack_nr-1)*stack_offset
+    asel,none
+    cmsel,none
+    ! *DO,stack_nr,1,n_stacks
+        cmsel,a,STR_IMP_%stack_nr% !insulation
+    ! *ENDDO
+    allsel,belo,area
+    type,1000+n_contact_element
+    esurf
+    allsel
+
+    !good until here
+
+    n_contact_element=n_contact_element+1
+*ENDDO
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!insulation_impregnation outside!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! *DO,stack_nr,1,n_stacks
+
+    et,n_contact_element,CONTA172
+    KEYOPT,n_contact_element,1,0
+    KEYOPT,n_contact_element,9,1
+    KEYOPT,n_contact_element,12,3
+    mp,mu,n_contact_element,0.2
+    r,n_contact_element
+
+    et,n_contact_element+1000,TARGE169
+    real,n_contact_element
+    mat,n_contact_element
+
+    allsel
+    asel,none
+    cmsel,none
+    *DO,stack_nr,1,n_stacks
+        cmsel,a,STR_IMP_%stack_nr% !insulation
+    *ENDDO
+    ! *ENDDO
+    ! asel,s,,,26000+(stack_nr-1)*stack_offset
+    allsel,belo,area
+    type,n_contact_element
+    esurf
+    allsel
+
+
+
+    ! asel,s,,,28001+(stack_nr-1)*stack_offset
+    allsel
+
+
+
+    asel,none
+    cmsel,none
+    ! *DO,stack_nr,1,n_stacks
+        ! cmsel,a,str_outer_imp_%stack_nr%,area
+         cmsel,a,str_outer_imp,area
+
+    ! *ENDDO
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! incase impregegnation of stacks has been merged
+    !cmsel,s,outer_imp_all,area
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    allsel,belo,area
+    type,1000+n_contact_element
+    esurf
+    allsel
+    n_contact_element=n_contact_element+1
+
+! *ENDDO
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Bond Turns !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+et,n_contact_element,CONTA172
+KEYOPT,n_contact_element,1,0
+KEYOPT,n_contact_element,9,1
+KEYOPT,n_contact_element,12,3
+mp,mu,n_contact_element,0.2
+r,n_contact_element
+
+et,n_contact_element+1000,TARGE169
+real,n_contact_element
+mat,n_contact_element
+
+allsel
+asel,none
+cmsel,none
+*DO,stack_nr,2,n_stacks,2
+    cmsel,a,STR_IMP_%stack_nr%,area
+*ENDDO
+! asel,s,,,26000+(stack_nr-1)*stack_offset
+allsel,belo,area
+type,n_contact_element
+esurf
+allsel
+
+
+
+! asel,s,,,28001+(stack_nr-1)*stack_offset
+allsel
+
+
+
+asel,none
+cmsel,none
+*DO,stack_nr,1,n_stacks,2
+    cmsel,a,STR_IMP_%stack_nr%,area
+*ENDDO
+
+allsel,belo,area
+type,1000+n_contact_element
+esurf
+allsel
+
+
+!GENERATE SIDE SUPPORT mesh
+*IF,side_support,EQ,1,THEN
+
+    n_conta_sidewall = n_contact_element
+
+
+    et,n_contact_element,CONTA172
+    KEYOPT,n_contact_element,1,0
+    KEYOPT,n_contact_element,9,3
+    KEYOPT,n_contact_element,12,0
+    mp,mu,n_contact_element,0.2
+    r,n_contact_element
+    R,n_contact_element,,,,,, 
+    RMORE,,,,-100.e-6, ,
+
+    et,n_contact_element+1000,TARGE169
+    real,n_contact_element
+    mat,n_contact_element
+
+    allsel
+    asel,none
+    cmsel,none
+    *DO,stack_nr,1,n_stacks
+        cmsel,a,str_outer_imp_%stack_nr%,area
+    *ENDDO
+    ! asel,s,,,26000+(stack_nr-1)*stack_offset
+    allsel,belo,area
+    type,n_contact_element
+    esurf
+    allsel
+
+
+
+    ! asel,s,,,28001+(stack_nr-1)*stack_offset
+    allsel
+
+
+
+    asel,none
+    cmsel,none
+    cmsel,s,left_side_support
+    cmsel,a,right_side_support
+    allsel,belo,area
+
+
+    type,1000+n_contact_element
+    esurf
+    allsel
+
+
+*ENDIF
+
+
+
+
+r_start = 1
+r_max = n_contact_element
+
+
+*do,i,r_start,r_max,1
+    rmod,i,6,0.1 !R6 = PINB (pinball region scaling factor)
+*enddo
+
+! FKN (real constant #3): normal contact stiffness factor (default 1.0).
+! Lowered uniformly to 0.1 to soften all contacts -- the radial-loading
+! deck was triggering excessive copper distortion at contact zones with
+! default stiffness; uniform reduction avoids introducing model asymmetry.
+! v18.2 RMOD,Nset,STLOC,V1 sets the STLOC'th real constant of set Nset to V1.
+*do,i,r_start,r_max,1
+    rmod,i,3,0.1
+*enddo
+
+
+
+! !!Pinball region
+
+! ! --- Step 1: Select all contact element types (e.g., CONTA172) ---
+! allsel
+! ETSEL, NONE
+! *DO, etid, 1, 10000
+!     *GET, etname, ETYP, etid, ATTR, LIBRARY
+!     *IF, etname, EQ, 'CONTA172', THEN
+!         ETSEL, ADD, etid
+!     *ENDIF
+! *ENDDO
+
+! ESEL, NONE
+! ESEL, R, TYPE    ! Select all elements of selected types (CONTA172)
+
+! *GET, nelem, ELEM, 0, COUNT
+! *DIM, elist, ARRAY, nelem
+! VGET, elist(1), ELEM, , NUM, NELEM
+
+! ! --- Step 2: Loop over all selected contact elements ---
+! *DO, i, 1, nelem
+!     elem_id = elist(i)
+!     *GET, rset, ELEM, elem_id, ATTR, REAL
+!     *IF, rset, GT, 0, THEN
+!         RMODIF, rset, 10, 0.3   ! RC10 = PINB, set scaling factor to 0.3x
+!     *ENDIF
+! *ENDDO
+
+
+
+
+
+
+!!!!Example with initial gap in contacts
+
+
+
+! !key1
+
+! et,c_index,conta172
+! keyopt,c_index,12,2
+! ! keyopt,c_index,12,5
+! keyopt,c_index,9,3  
+! mp,mu,c_index,0.2
+! r,c_index
+! R,c_index,,,, ,, 
+! RMORE,,,,50e-6, ,
+! ! RMORE,,,,-0, ,
+! et,(500+c_index),targe169
+! c_index = c_index + 1
+! alls
+ 
+ 
+! !key2
+
+! et,c_index,conta172
+! keyopt,c_index,12,2
+! ! keyopt,c_index,12,5
+! keyopt,c_index,9,3  
+! mp,mu,c_index,0.2
+! r,c_index
+! R,c_index,,,, ,, 
+! RMORE,,,,300e-6, ,
+! ! RMORE,,,,-0, ,
+! et,(500+c_index),targe169
+! c_index = c_index + 1
+! alls
+! et,c_index,conta172
+
+! !KEY3
+! ! keyopt,c_index,12,2
+! keyopt,c_index,12,2
+! keyopt,c_index,9,3  
+! mp,mu,c_index,0.2
+! r,c_index
+! R,c_index,,,, ,, 
+! RMORE,,,,300e-6, ,
+! ! RMORE,,,,-0, ,
+! et,(500+c_index),targe169
+! c_index = c_index + 1
+! alls
+ 

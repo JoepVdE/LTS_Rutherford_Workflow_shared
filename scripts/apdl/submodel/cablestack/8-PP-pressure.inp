@@ -1,0 +1,101 @@
+! =========================================================
+! 8-PP-pressure.inp  --  Post-processing for pressure loading
+!
+! Assumptions:
+!   - presArray(1..n_timesteps) and n_timesteps must be defined before this
+!     file is called (set by 5-BC-pressure.inp).
+!   - Each load step K runs TIME from K-1 to K; pressure ramps linearly from
+!     presArray(K-1) (or 0 for K=1) to presArray(K).
+!   - FY_analytical [N/m depth] = pres_applied(K,t_cur) * 2 * x_cab
+!   - FX_reaction  [N/m depth]: FSUM on nset_left (UX-constrained wall)
+!   - nset_top / nset_left node components defined in 5-BC-*.inp
+!
+! Output files (all SI -- metres, Newtons):
+!   fd_pressure_%usecase%.txt  -- per substep:
+!       LoadStep, SubStep, Time(s), FY_analytical(N/m), FX_reaction(N/m)
+!   uy_top_%usecase%.txt       -- per (substep, node):
+!       LoadStep, SubStep, NodeID, UY(m)
+!
+!   Mean UY and stress/strain curves are computed in Python.
+! =========================================================
+
+/POST1
+
+! === Count top nodes once (for traversal loop bounds) ===
+allsel
+cmsel,s,nset_top,node
+*GET,nb_top,NODE,0,COUNT
+
+allsel
+
+! === Query actual number of solved load steps ===
+SET,LAST
+*GET,actual_n_loadsteps,ACTIVE,0,SET,LSTP
+
+! === Initialise output files with headers ===
+/DELETE,'pp/fd_pressure_%usecase%','txt'
+*cfopen,'pp/fd_pressure_%usecase%','txt',,'append'
+*VWRITE,'LoadStep','SubStep','Time (s)','FY_analytical (N/m)','FX_reaction (N/m)'
+(A10,2X,A10,2X,A12,2X,A22,2X,A22)
+*cfclos
+
+/DELETE,'pp/uy_top_%usecase%','txt'
+*cfopen,'pp/uy_top_%usecase%','txt',,'append'
+*VWRITE,'LoadStep','SubStep','NodeID','UY (m)'
+(A10,2X,A10,2X,A10,2X,A14)
+*cfclos
+
+! === Main substep loop ===
+*DO,K,1,actual_n_loadsteps
+
+    *GET,nset_first_K,ACTIVE,0,SET,NSET,FIRST,K
+    *GET,nset_last_K, ACTIVE,0,SET,NSET,LAST,K
+    n_sub_K = nset_last_K - nset_first_K + 1
+
+    *DO,L,1,n_sub_K
+
+        SET,K,L
+        *GET,t_cur,ACTIVE,0,SET,TIME
+
+        ! Applied force on top (FSUM on SFL pressure-loaded boundary):
+        ! presArray(K) and x_cab may not expand reliably in /POST1 when K is
+        ! a *DO loop variable ? read the actual nodal force directly instead.
+        allsel
+        cmsel,s,nset_top,node
+        FSUM
+        *GET,FY_analytical,FSUM,0,ITEM,FY
+
+        ! Reaction force at left wall (UX-constrained):
+        allsel
+        cmsel,s,nset_left,node
+        FSUM
+        *GET,FX_reaction,FSUM,0,ITEM,FX
+
+        *cfopen,'pp/fd_pressure_%usecase%','txt',,'append'
+        *VWRITE,K,L,t_cur,FY_analytical,FX_reaction
+        (F10.0,2X,F10.0,2X,E14.6,2X,E14.6,2X,E14.6)
+        *cfclos
+
+        ! --- Write UY for every top node ---
+        ! Scalar cursor traversal avoids array(loop_var) subscript expansion
+        ! issues in *GET and *VWRITE inside *DO loops.
+        allsel
+        cmsel,s,nset_top,node
+        cur_nid = 0
+        *GET,cur_nid,NODE,0,NUM,MIN
+        *cfopen,'pp/uy_top_%usecase%','txt',,'append'
+        *DO,jj,1,nb_top
+            *GET,uy_jj,NODE,cur_nid,U,Y
+            *VWRITE,K,L,cur_nid,uy_jj
+            (F10.0,2X,F10.0,2X,F10.0,2X,E14.6)
+            *GET,cur_nid,NODE,cur_nid,NXTH
+        *ENDDO
+        *cfclos
+
+        allsel
+
+    *ENDDO
+
+*ENDDO
+
+allsel

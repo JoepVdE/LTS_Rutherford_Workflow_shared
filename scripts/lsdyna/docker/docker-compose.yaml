@@ -1,0 +1,55 @@
+services:
+  lsdyna:
+    # image: localhost:5053/lsdyna:25.2
+    # Registry chosen by REGISTRY_PREFIX env var; default = PSI Gitea.
+    # CERN users: export REGISTRY_PREFIX=registry.cern.ch/chart-magnum
+    image: ${REGISTRY_PREFIX:-gitea.psi.ch/vanden_j}/lsdyna:25.2
+
+    # container_name omitted: Docker generates a unique name from the -p project flag,
+    # allowing multiple parallel cables to run LS-DYNA simultaneously without colliding.
+
+    entrypoint: ["/file.sh"]
+
+    volumes:
+      - ${LSDYNA_RUN_DIR:-./run-lsdyna}:/run  #working directory: /run 
+      - ./file.sh:/file.sh:rw
+    # environment:
+    #   MPIVARS: /opt/intel/oneapi/setvars.sh
+    #   DYNA_OPTION: SP_MPP
+    #   DYNA_NCPU: 8
+    #   DYNA_ARGS: "i=input.k"
+    #   LSTC_LICENSE: network
+    #   LSTC_LICENSE_SERVER: muc-lic-demo.cadfem.de #needs port number
+    # working_dir: /run
+ 
+
+    environment:
+      # Keep these as-is for the container's internal environment
+      MPIVARS: /opt/intel/oneapi/setvars.sh
+      DYNA_OPTION: DP_MPP
+      DYNA_NCPU: 4
+      LSTC_MEMORY: auto
+      # DYNA_ARGS: "i=mesh.k memory=1000M" # on each CPU: one word is 8 bytes
+      DYNA_ARGS: "i=processed_input.k"
+
+      # Change these to match your verified institutional servers
+      LSTC_LICENSE: ANSYS
+      # For LS-DYNA, usually the Interconnect port (2325) or the Flex port (1801)
+      # License servers are set dynamically by main.py based on network reachability.
+      # These fallback values are used only when running docker compose manually.
+      # ETH: 1801@lic-ansys-research.ethz.ch  |  PSI: 1055@winlic03.psi.ch
+      ANSYSLI_SERVERS: 1801@lic-ansys-research.ethz.ch:1055@winlic03.psi.ch
+      ANSYSLMD_LICENSE_FILE: 1801@lic-ansys-research.ethz.ch:1055@winlic03.psi.ch
+      # Intel MPI: single-node Docker has no InfiniBand/OFI fabric; restrict to shared memory
+      # to prevent SIGSEGV at MPI_Init when MPI probes unavailable network interfaces.
+      I_MPI_FABRICS: shm
+      I_MPI_SHM_HEAP_VSIZE: 512
+          
+    shm_size: '4gb'  # MPI inter-rank shared memory; default 64MB causes Bus error with 8 ranks
+
+    # Cap LS-DYNA at 4 logical CPUs so it shares the box with MAPDL (also
+    # capped at 4).  cpuset avoided -- Docker Desktop / WSL2 cgroup mask
+    # breaks Intel OMP affinity init.
+    cpus: 4
+
+    working_dir: /run

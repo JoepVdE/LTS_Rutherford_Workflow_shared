@@ -1,0 +1,1118 @@
+! Compression BOX magnetic model with ANSYS 3D
+! Joep Van den Eijnden
+! 02/012/2024
+! Modified: Added time-dependent current analysis with multiple timesteps
+! Each timestep uses a different current value from the totalCurr array
+! /INPUT,CompBox,inp,C:/Users/vanden_j/OneDrive - ETH Zurich/Documents/ANSYS/APDL compressionBOX,0,0
+
+
+FINISH  
+/CLEAR,START
+/RGB,INDEX,100,100,100, 0   
+/RGB,INDEX, 80, 80, 80,13   
+/RGB,INDEX, 60, 60, 60,14   
+/RGB,INDEX, 0, 0, 0,15  
+
+
+!Select cable
+! <<<COMPBOX_PARENT_PARAMS_START>>> (values below are patched by compbox_stage.py)
+cable_type = 'SMACC_HF_submodel'
+wf_cable_width = 0
+wf_cable_height = 0
+! <<<COMPBOX_PARENT_PARAMS_END>>>
+! wf_cable_* = 0 means: use the cable_type dimension branch below.
+! Nonzero values (metres; 2*x_cab / 2*y_cab) override that branch, so any
+! cable preset can run without a dedicated *elseif. Known cable_type tokens:
+! CD1, CD1_submodel, Subscale, R2D2_LF, R2D2_HF, SMACC_HF_submodel.
+
+
+/title,CompBox_MAG_%cable_type%
+/filname,CompBox_MAG_%cable_type%,0
+
+/UNITS,SI
+
+/PREP7
+/FACET,FINE  
+
+/PNUM,KP,1
+/PNUM,LINE,1
+/PNUM,AREA,1
+/PNUM,VOLU,0
+/PNUM,NODE,0
+/PNUM,TABN,0
+/PNUM,SVAL,0
+/PNUM,DOMA,0
+/NUMBER,0   
+!*  
+/PNUM,ELEM,0
+/REPLOT 
+
+! Cable path
+*set,straight_section_long_length,134.5e-3
+*set,straight_section_short_length,38.e-3
+*set,curve_radius,11.e-3
+
+!meshsizing
+LESIZE_cond = straight_section_long_length/100
+LE135 = straight_section_long_length/100
+DEG_246 = 5
+
+! Physical definitions
+tref,293 
+
+! *set,mesh_size_cond,1e-3
+! *set,mesh_size_air,mesh_size_cond/3
+
+! interference and contact
+*set,tol_contact,4.0e-5
+
+
+! Initialize variables for cable dimensions
+*set,cable_height,0
+*set,cable_width,0
+*set,insulation_thickness,0.15e-3 
+
+! Assign dimensions based on the cable type
+*if,cable_type,eq,'CD1',then
+    *set,cable_height,1.5e-3+2*insulation_thickness
+    *set,cable_width,10.1e-3+2*insulation_thickness
+*elseif,cable_type,eq,'CD1_submodel',then
+    *set,cable_height,2*0.93e-3
+    *set,cable_width,2*5.1e-3
+*elseif,cable_type,eq,'Subscale',then
+    *set,cable_height,1.6e-3
+    *set,cable_width,4.1e-3
+*elseif,cable_type,eq,'R2D2_LF',then
+    *set,cable_height,1.31e-3+2*insulation_thickness
+    *set,cable_width,12.74e-3+2*insulation_thickness
+*elseif,cable_type,eq,'R2D2_HF',then
+    *set,cable_height,2.06e-3+2*insulation_thickness
+    *set,cable_width,12.74e-3+2*insulation_thickness
+*elseif,cable_type,eq,'SMACC_HF_submodel',then
+    ! SMACC_HF (R2D2 HF) deformed-cable submodel footprint. Matches the
+    ! Rutherford-workflow convention: height = stack_height_mm = 2.36 mm
+    ! (compressed height incl. insulation), width = 2*x_cab with the
+    ! 0.5 mm/side impregnation margin: 2*(12.74/2 + 0.5) = 13.74 mm.
+    *set,cable_height,2*1.18e-3
+    *set,cable_width,2*6.87e-3
+*else
+    ! Unrecognized cable_type: dimensions must come from the workflow
+    ! override block (wf_cable_width / wf_cable_height) patched at the top.
+*endif
+
+! Workflow override: nonzero wf_cable_* take precedence over the branch above.
+*if,wf_cable_width,gt,0,then
+    *set,cable_width,wf_cable_width
+*endif
+*if,wf_cable_height,gt,0,then
+    *set,cable_height,wf_cable_height
+*endif
+
+! Guard: no dimensions resolved at all -> stop before building geometry.
+*if,cable_width,le,0,then
+    /eof
+*endif
+
+
+
+*set,air_domain_length,5.*straight_section_long_length
+*set,air_domain_width,10.*straight_section_short_length
+
+! Parameters
+! *set,totalCurr,-20000
+
+
+
+
+! BOX9 (SMACC_HF) measured loading schedule; box6_loading.inp is the CD1 one.
+/inp,box9_loading,inp
+
+
+
+! *set,mesh_size_cond,1.5e-3
+! *set,mesh_size_air,5.e-2
+
+!*set,mesh_size_air,mesh_size_cond*10
+*set,mesh_size_cond,cable_height/5
+
+
+! Initial current density - will be updated in solution loop
+*set,J_total,totalCurr(1)/(cable_height*cable_width) ! current density; x, y, z refer to component
+
+
+csys,0
+z_offset = straight_section_long_length+curve_radius-cable_height/2
+x_offset_14 = 0
+y_offset_14 = +straight_section_short_length/2
+z_offset_14 =  curve_radius-cable_height/2
+
+local,14,1,x_offset_14,y_offset_14,z_offset_14,,,90. !used for radius Js of V2
+local,15,1,x_offset_14,-y_offset_14,z_offset_14,,,90. !used for radius Js of V2
+
+
+local,16,1,0,-curve_radius-straight_section_short_length/2+straight_section_short_length/2+curve_radius,cable_height+z_offset,,,90. !used for air domain
+! local,17,0,straight_section_long_length/2.,-curve_radius-straight_section_short_length/2,cable_height,,,90 !used for air domain
+! local,19,1,straight_section_long_length/2.,straight_section_short_length/2,cable_height,,,90 !used for air domain
+
+! !!!!!!!!!!!!!!!!!!!!!!!!!
+! GEOMETRY
+!!!!!!!!!!!!!!!!!!!!!!!!!
+csys,0 !Activates a previously defined coordinate system.
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UTwente Solenoid
+! 	R inner	R outer	Z min	Z max	# Turns	Current
+! 1	0.0418	0.056	-0.085	0.085	5210	24.0325
+! 2	0.056	0.0591	-0.085	0.085	693	    24.0325
+! 3	0.0635	0.0649	-0.11	0.11	554	    24.0325
+! 4	0.0649	0.06725	-0.11	0.11	1359	24.0325
+! 5	0.06725	0.0733	-0.11	0.11	4829	24.0325
+! 6	0.0733	0.07905	0.013	0.11	2170	24.0325
+! 7	0.07905	0.0872	0.013	0.11	4332	24.0325
+! 8	0.0733	0.0788	-0.11	-0.013	2126	24.0325
+! 9	0.0788	0.087	-0.11	-0.013	4335	24.0325
+
+Ri_1 = 0.0418
+Ro_1 =0.056
+Zmin_1= -0.085
+Zmax_1= 0.085
+
+Ri_2=0.056
+Ro_2=0.0591
+Zmin_2= -0.085
+Zmax_2= 0.085
+
+Ri_3=0.0635
+Ro_3=0.0649
+Zmin_3=-0.11
+Zmax_3=0.11
+
+Ri_4=0.0649
+Ro_4=0.06725
+Zmin_4=-0.11
+Zmax_4=0.11
+
+Ri_5=   0.06725
+Ro_5=   0.0733
+Zmin_5= -0.11
+Zmax_5= 0.11
+
+Ri_6=   0.0733
+Ro_6=   0.07905
+Zmin_6= 0.013
+Zmax_6= 0.11
+
+Ri_7=   0.07905
+Ro_7=   0.0872
+Zmin_7= 0.013
+Zmax_7= 0.11
+
+Ri_8=   0.0733
+Ro_8=   0.0788
+Zmin_8= -0.11
+Zmax_8= -0.013
+
+Ri_9=	0.0788
+Ro_9=   0.087
+Zmin_9=-0.11
+Zmax_9= -0.013
+
+I_solenoid = 88 !voor 11 T
+turns_1 = 5210
+turns_2 = 693
+turns_3 = 554
+turns_4 = 1359
+turns_5 = 4829
+turns_6 = 2170
+turns_7 = 4332
+turns_8 = 2126
+turns_9 = 4335
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!
+! COORDINATE SYS
+!!!!!!!!!!!!!!!!!!!!!!!!!
+local,100,1,0.,0.,0! lo
+local,101,1,0.,0.,(Zmax_6+Zmin_6)/2! lo
+local,102,1,0.,0.,(Zmax_8+Zmin_8)/2! lo
+
+local,1111,0,10.,10.,10! lo
+
+!Placed around origin 
+CYLIND,Ri_1,Ro_1,Zmin_1,Zmax_1
+vsel,s,,,1
+CM, Magnet_1, volu
+
+CYLIND,Ri_2,Ro_2,Zmin_2,Zmax_2
+vsel,s,,,2
+CM, Magnet_2, volu
+
+
+!Coil 3
+CYLIND,Ri_3,Ro_3,Zmin_6,Zmax_6
+vsel,s,,,3
+CM, Magnet_3a, volu
+
+CYLIND,Ri_3,Ro_3,Zmax_8,Zmin_6
+vsel,s,,,4
+CM, Magnet_3b, volu
+
+CYLIND,Ri_3,Ro_3,Zmin_8,Zmax_8
+vsel,s,,,5
+CM, Magnet_3c, volu
+
+!Coil 4
+CYLIND,Ri_4,Ro_4,Zmin_6,Zmax_6
+vsel,s,,,6
+CM, Magnet_4a, volu
+
+CYLIND,Ri_4,Ro_4,Zmax_8,Zmin_6
+vsel,s,,,7
+CM, Magnet_4b, volu
+
+CYLIND,Ri_4,Ro_4,Zmin_8,Zmax_8
+vsel,s,,,8
+CM, Magnet_4c, volu
+
+!Coil 5
+CYLIND,Ri_5,Ro_5,Zmin_6,Zmax_6
+vsel,s,,,9
+CM, Magnet_5a, volu
+
+CYLIND,Ri_5,Ro_5,Zmax_8,Zmin_6
+vsel,s,,,10
+CM, Magnet_5b, volu
+
+CYLIND,Ri_5,Ro_5,Zmin_8,Zmax_8
+vsel,s,,,11
+CM, Magnet_5c, volu
+
+
+!Coil 6
+CYLIND,Ri_6,Ro_6,Zmin_6,Zmax_6
+vsel,s,,,12
+CM, Magnet_6, volu
+
+!Air 6-8
+CYLIND,Ri_6,Ro_6,Zmax_8,Zmin_6
+vsel,s,,,13
+CM, air6_8, volu
+
+!Coil 8
+CYLIND,Ri_6,Ro_6,Zmin_8,Zmax_8
+vsel,s,,,14
+CM, Magnet_8, volu
+
+
+!Coil 7
+CYLIND,Ri_7,Ro_7,Zmin_6,Zmax_6
+vsel,s,,,15
+CM, Magnet_7, volu
+
+!Air 7-8
+CYLIND,Ri_7,Ro_7,Zmax_8,Zmin_6
+vsel,s,,,16
+CM, air7_9, volu
+
+!Coil 9
+CYLIND,Ri_7,Ro_7,Zmin_8,Zmax_8
+vsel,s,,,17
+CM, Magnet_9, volu
+NUMMRG,all  !get rid of double defined items
+
+
+! CYLIND,Ri_7,Ro_7,Zmin_8,Zmax_6
+! vsel,s,,,7
+! CM, Magnet_7, volu
+
+! !Placed around z=-0.123/2
+! CYLIND,Ri_8,Ro_8,Zmin_8,Zmax_6
+! vsel,s,,,7
+! CM, Magnet_7, volu
+
+! CYLIND,Ri_9,Ro_9,Zmin_9,min_9
+! vsel,s,,,9
+! CM, Magnet_9, volu
+
+
+z_offset = straight_section_long_length+curve_radius-cable_height/2
+
+LOCAL,103,0,-cable_width/2.,straight_section_short_length/2+curve_radius,z_offset,,,90
+LOCAL,104,0,-cable_width/2.,straight_section_short_length/2+curve_radius,z_offset,,
+LOCAL,105,,x_offset,y_offset,z_offset,0,0,0,0,0
+
+
+csys,103 !Activates a previously defined coordinate system.
+k,1000,0.0,0.0 !creates keypoint with ID1000 at coordinates 0,0 in XY plane.  K, NPT, X, Y, Z
+k,1003,straight_section_long_length,0.0,0.0 !end of straight line
+k,1004,straight_section_long_length+curve_radius,-curve_radius, 0. !curve 
+!k,1002,straight_section_long_length+curve_radius/2.01,curve_radius/2.,0. !curve help point to give outside of radius
+k,1002,0.-1e-3,0. !curve help point to give outside of radius
+k,1005,straight_section_long_length+curve_radius,-curve_radius-straight_section_short_length, 0. !curve 
+k,1006,straight_section_long_length,-2.*curve_radius-straight_section_short_length, 0. !curve 
+k,1007,0.,-2.*curve_radius-straight_section_short_length,0.
+k,1008,straight_section_long_length+curve_radius,-curve_radius-straight_section_short_length/2, 0. !curve 
+
+!keypoints for conductor area
+csys,103
+k,1011,0.,0.,cable_width
+k,1012,0.,cable_height,cable_width
+k,1013,0.,cable_height,0.
+a,1000,1011,1012,1013
+
+asel,s,loc,x,0
+cm,conductor_area,area
+
+
+csys,103
+!create lines for path compression box
+l,1000,1003 							! line 1000, straight section
+larc,1003,1004,1002,curve_radius			! line 1002, hard-way bend LARC, P1, P2, PC, RAD 
+
+csys,103
+l,1004,1005
+larc,1005,1006,1002,curve_radius
+l,1006,1007
+csys,103
+k,1014,-0.1,-curve_radius-straight_section_short_length/2
+larc,1007,1000,1014,straight_section_short_length/2.+curve_radius
+
+
+
+! Half symmetry (not used)
+!l,1000,1003 							! line 1000, straight section
+!larc,1003,1004,1002,curve_radius			! line 1002, hard-way bend LARC, P1, P2, PC, RAD 
+!l,1004,1008
+
+
+
+csys,0
+vdrag,conductor_area,,,,,,33,34,35,36,39,40!,1003,1004,1005,1006
+NUMMRG,all  !get rid of double defined items
+
+vsel,s,,,18
+CM,Cable_1,volu
+allsel,below,volume
+CM,Cable_1_lines,line
+VPLOT
+
+vsel,s,,,19
+CM,Cable_2,volu
+allsel,below,volume
+CM,Cable_2_lines,line
+
+vsel,s,,,20
+CM,Cable_3,volu
+allsel,below,volume
+CM,Cable_3_lines,line
+
+vsel,s,,,21
+CM,Cable_4,volu
+allsel,below,volume
+CM,Cable_4_lines,line
+
+vsel,s,,,22
+CM,Cable_5,volu
+allsel,below,volume
+CM,Cable_5_lines,line
+
+vsel,s,,,23
+CM,Cable_6,volu
+allsel,below,volume
+CM,Cable_6_lines,line
+
+
+
+CMSEL,s,Cable_1_lines
+CMSEL,r,Cable_2_lines
+LESIZE,all,LESIZE_cond,,
+
+
+
+CMSEL,s,Cable_2_lines
+CMSEL,r,Cable_3_lines
+LESIZE,all,LESIZE_cond,,
+
+CMSEL,s,Cable_3_lines
+CMSEL,r,Cable_4_lines
+LESIZE,all,LESIZE_cond,,
+
+CMSEL,s,Cable_4_lines
+CMSEL,r,Cable_5_lines
+LESIZE,all,LESIZE_cond,,
+
+CMSEL,s,Cable_5_lines
+CMSEL,r,Cable_6_lines
+LESIZE,all,LESIZE_cond,,
+
+CMSEL,s,Cable_6_lines
+CMSEL,r,Cable_1_lines
+LESIZE,all,LESIZE_cond,,
+
+
+
+CMSEL,s,Cable_1_lines
+CMSEL,a,Cable_3_lines
+CMSEL,a,Cable_5_lines
+
+LESIZE,all,LE135,,
+
+
+CMSEL,s,Cable_2_lines
+CMSEL,a,Cable_4_lines
+!CMSEL,a,Cable_6_lines
+LESIZE,all,,DEG_246,
+
+allsel
+CMSEL,s,Cable_1_lines
+CMSEL,a,Cable_2_lines
+CMSEL,a,Cable_3_lines
+CMSEL,a,Cable_4_lines
+CMSEL,a,Cable_5_lines
+CMSEL,a,Cable_6_lines
+lplot
+
+
+!airbox
+CYLIND,,7*Ro_9,7*Zmin_9,7*Zmax_7
+
+allsel
+!VSBV,7,all,,delete,keep
+!box_size=0.3
+!BLOCK, box_size, -box_size, box_size, -box_size,box_size, -box_size
+VSBV,24,all,,delete,keep
+
+NUMMRG,all  !get rid of double defined items
+et,1,solid236       !Air 3D structural element in ANSYS: 
+keyopt,1,1,0
+keyopt,1,8,1         ! use Maxwell force option
+et,11,solid236      !Conductor 3D structural element in ANSYS: 
+keyopt,1,1,0
+keyopt,11,8,1        ! use Maxwell force option
+
+mur=1
+mp,murx,1,mur       !Air 
+mp,murx,11,mur      !Coil  
+
+
+
+csys,0
+csys,0
+
+num_subdivisions =15
+num_subdivisions_axial = 24 !should be divisable by 8 !60 still worked
+num_subdivisions_axiala = num_subdivisions_axial/2
+num_subdivisions_axialb = num_subdivisions_axiala/4
+num_subdivisions_axialc = num_subdivisions_axiala
+! num_subdivisions =60
+
+csys,0
+esys,0
+
+
+
+!lie midsides nodes on straight edge
+MSHMID,1
+
+
+
+!!!!!!Conductor meshing
+CMSEL,s,Cable_1
+VATT,11,,11,, !Set element to conductor
+VPLOT
+MSHKEY,1       ! Explicitly request mapped meshing (MSHKEY,1 allows free meshing with Mapped Geometry)
+VSWEEP,18,36,11,
+
+CMSEL,s,Cable_3
+VATT,11,,11,, !Set element to conductor
+VPLOT
+MSHKEY,1       ! Explicitly request mapped meshing (MSHKEY,1 allows free meshing with Mapped Geometry)
+!VSWEEP,20,47,59,
+VMESH,all
+
+
+CMSEL,s,Cable_5
+VATT,11,,11,, !Set element to conductor
+VPLOT
+MSHKEY,1       ! Explicitly request mapped meshing (MSHKEY,1 allows free meshing with Mapped Geometry)
+VSWEEP,22,71,80,
+
+
+csys,14
+esys,14
+allsel
+cmsel,s,Cable_2
+VATT,11,,11,, !Set element to conductor
+
+CMSEL,s,Cable_2_lines
+LESIZE,all,,DEG_246, !why is this not working??????
+
+
+MSHKEY,1       ! Explicitly request mapped meshing (MSHKEY,1 allows free meshing with Mapped Geometry)
+VSWEEP,19,47,36
+
+
+allsel
+csys,15
+esys,15
+CMSEL,s,Cable_4
+VATT,11,,11,, !Set element to conductor
+
+CMSEL,s,Cable_4_lines
+LESIZE,all,,DEG_246 
+allsel
+MSHKEY,1 
+VSWEEP,21,71,59
+VPLOT
+
+
+
+!Offset node counting for later transfer of forces
+!NUMOFF, Label, VALUE, KREF
+NUMSTR,node,1.e6
+
+
+csys,16
+esys,16
+vsel,s,,,23
+VATT,11,,11,, !Set element to conductor
+CMSEL,s,Cable_6_lines
+LESIZE,all,,DEG_246
+MSHKEY,1       ! Explicitly request mapped meshing (MSHKEY,1 allows free meshing with Mapped Geometry)
+!esize,mesh_size_cond
+VSWEEP,23,80,11
+
+
+!MESH_1
+
+csys,1
+allsel
+cmsel,s,Magnet_1
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmax_1
+LESIZE,all,,,num_subdivisions
+
+cmsel,s,Magnet_1
+allsel,below,volu
+LSEL,r,loc,z,Zmin_1+0.01,Zmax_1-0.01
+LESIZE,all,,,num_subdivisions_axial
+
+num_subdivisions_rad = 3
+MSHKEY,1
+AESIZE,2,(Ro_1-Ri_1)/2
+csys,100
+esys,100
+VATT,11,,11,, !Set element to conductor
+vsweep,1,2,1     ! Mesh volume 1
+
+
+!MESH_2
+
+VPLOT
+cmsel,s,Magnet_2
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmax_2
+LESIZE,all,,,num_subdivisions
+
+cmsel,s,Magnet_2
+allsel,below,volu
+LSEL,r,loc,z,Zmin_2+0.01,Zmax_2-0.01
+LESIZE,all,,,num_subdivisions_axial
+
+allsel
+ASEL,s,,,8
+
+
+
+AESIZE,8,(Ro_2-Ri_2)/1
+
+
+vsweep,2,8,7      ! Mesh volume 2
+
+
+
+!MESH_3
+!3a
+allsel
+cmsel,s,Magnet_3a
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+VPLOT
+LSEL,r,loc,z,Zmax_3
+LESIZE,all,,,num_subdivisions
+
+allsel
+cmsel,s,Magnet_3a
+allsel,belo,volu
+LSEL,r,loc,z,Zmin_6+0.01,Zmax_6-0.01
+LESIZE,all,,,num_subdivisions_axiala
+
+ASEL,s,,,14
+AESIZE,14,(Ro_3-Ri_3)/1
+
+vsweep,3,14,13      ! Mesh volume 1
+
+!3b Zmax_8,Zmin_6
+allsel
+cmsel,s,Magnet_3b
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_6-0.01,Zmax_8+0.01
+LESIZE,all,,,num_subdivisions_axialb
+
+allsel
+cmsel,s,Magnet_3b
+allsel,belo,volu
+vsweep,4,13,19      ! Mesh volume 1
+
+
+!3c Zmax_8,Zmin_8
+allsel
+cmsel,s,Magnet_3c
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_8+0.01,Zmax_8-0.01
+LESIZE,all,,,num_subdivisions_axialc
+
+allsel
+cmsel,s,Magnet_3c
+allsel,belo,volu
+vsweep,5,19,25      ! Mesh volume 1
+
+!MESH_4
+!4a
+allsel
+cmsel,s,Magnet_4a
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+VPLOT
+LSEL,r,loc,z,Zmax_3
+LESIZE,all,,,num_subdivisions
+
+allsel
+cmsel,s,Magnet_4a
+allsel,belo,volu
+LSEL,r,loc,z,Zmin_6+0.01,Zmax_6-0.01
+LESIZE,all,,,num_subdivisions_axiala
+
+ASEL,s,,,32
+AESIZE,32,(Ro_4-Ri_4)/1
+
+vsweep,6,32,31      ! Mesh volume 1
+
+
+
+
+!4b Zmax_8,Zmin_6
+allsel
+cmsel,s,Magnet_4b
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_6-0.01,Zmax_8+0.01
+LESIZE,all,,,num_subdivisions_axialb
+
+allsel
+cmsel,s,Magnet_4b
+allsel,belo,volu
+vsweep,7,31,37      ! Mesh volume 1
+
+
+!4c Zmax_8,Zmin_8
+allsel
+cmsel,s,Magnet_4c
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_8+0.01,Zmax_8-0.01
+LESIZE,all,,,num_subdivisions_axialc
+
+allsel
+cmsel,s,Magnet_4c
+allsel,belo,volu
+vsweep,8,37,43      ! Mesh volume 1
+
+allsel
+EPLOT
+
+
+!MESH_5
+!5a
+allsel
+cmsel,s,Magnet_5a
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+VPLOT
+LSEL,r,loc,z,Zmax_3
+LESIZE,all,,,num_subdivisions
+
+allsel
+cmsel,s,Magnet_5a
+allsel,belo,volu
+LSEL,r,loc,z,Zmin_6+0.01,Zmax_6-0.01
+LESIZE,all,,,num_subdivisions_axiala
+
+ASEL,s,,,50
+AESIZE,50,(Ro_5-Ri_5)/2
+
+vsweep,9,50,49      ! Mesh volume 1
+
+
+!5b Zmax_8,Zmin_6
+allsel
+cmsel,s,Magnet_5b
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_6-0.01,Zmax_8+0.01
+LESIZE,all,,,num_subdivisions_axialb
+
+allsel
+cmsel,s,Magnet_5b
+allsel,belo,volu
+vsweep,10,49,55      ! Mesh volume 1
+
+
+!5c Zmax_8,Zmin_8
+allsel
+cmsel,s,Magnet_5c
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_8+0.01,Zmax_8-0.01
+LESIZE,all,,,num_subdivisions_axialc
+
+allsel
+cmsel,s,Magnet_5c
+allsel,belo,volu
+vsweep,11,55,61      ! Mesh volume 1
+
+allsel
+EPLOT
+
+!MESH_6
+!6a
+allsel
+cmsel,s,Magnet_6
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+VPLOT
+LSEL,r,loc,z,Zmax_3
+LESIZE,all,,,num_subdivisions
+
+allsel
+cmsel,s,Magnet_6
+allsel,belo,volu
+LSEL,r,loc,z,Zmin_6+0.01,Zmax_6-0.01
+LESIZE,all,,,num_subdivisions_axiala
+
+
+ASEL,s,,,68
+AESIZE,68,(Ro_6-Ri_6)/2
+allsel
+vsweep,12,68,67      ! Mesh volume 1
+
+!5b Zmax_8,Zmin_6
+allsel
+cmsel,s,air6_8
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_6-0.01,Zmax_8+0.01
+LESIZE,all,,,num_subdivisions_axialb
+
+allsel
+cmsel,s,air6_8
+allsel,belo,volu
+vsweep,13,67,73      ! Mesh volume 1
+
+
+!5c Zmax_8,Zmin_8
+allsel
+cmsel,s,Magnet_8
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_8+0.01,Zmax_8-0.01
+LESIZE,all,,,num_subdivisions_axialc
+
+allsel
+cmsel,s,Magnet_8
+allsel,belo,volu
+vsweep,14,73,79      ! Mesh volume 1
+
+allsel
+EPLOT
+
+
+!MESH_7
+allsel
+cmsel,s,Magnet_7
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+VPLOT
+LSEL,r,loc,z,Zmax_3
+LESIZE,all,,,num_subdivisions
+
+allsel
+cmsel,s,Magnet_7
+allsel,belo,volu
+
+LSEL,r,loc,z,Zmin_6+0.01,Zmax_6-0.01
+LESIZE,all,,,num_subdivisions_axiala
+
+
+ASEL,s,,,86
+AESIZE,86,(Ro_6-Ri_6)/2
+allsel
+vsweep,15,86,85      ! Mesh volume 1
+
+!5b Zmax_8,Zmin_6
+allsel
+cmsel,s,air7_9
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_6-0.01,Zmax_8+0.01
+LESIZE,all,,,num_subdivisions_axialb
+
+allsel
+cmsel,s,air7_9
+allsel,belo,volu
+vsweep,16,85,91      ! Mesh volume 1
+
+
+!5c Zmax_8,Zmin_8
+allsel
+cmsel,s,Magnet_9
+allsel,below,volu
+VATT,11,,11,, !Set element to conductor
+LSEL,r,loc,z,Zmin_8+0.01,Zmax_8-0.01
+LESIZE,all,,,num_subdivisions_axialc
+
+allsel
+cmsel,s,Magnet_9
+allsel,belo,volu
+vsweep,17,91,97      ! Mesh volume 1
+
+allsel
+
+!!MESH_AIR
+csys,0
+esys,0
+VSEL,s,VOLU,,25  !
+VATT,1,,1,, !to air
+VPLOT
+mshape,1,3D
+MSHKEY,0       ! Explicitly request free meshing (MSHKEY,0 for strictly free meshing)
+
+allsel
+
+
+asel,s,,,92,95
+aesize,all,1e-1
+
+! mopt,vmesh,ALTERNATE
+mopt,pyra,on    ! Set smart size for meshing
+mopt,TRANS,4
+
+MOPT,STAT
+
+VMESH,ALL  
+
+
+csys,100
+esys,100
+
+
+!Set current
+allsel
+cmsel,s,Magnet_1
+allsel,below,volume
+J_1 = turns_1*I_solenoid/((Ro_1-Ri_1)*(Zmax_1-Zmin_1))
+BFE, ALL, Js,,,J_1
+
+!Set current
+allsel
+cmsel,s,Magnet_2
+allsel,below,volume
+J_2 = turns_2*I_solenoid/((Ro_2-Ri_2)*(Zmax_2-Zmin_2))
+BFE, ALL, Js,,,J_2
+
+!Set current
+allsel
+cmsel,s,Magnet_3a
+cmsel,a,Magnet_3b
+cmsel,a,Magnet_3c
+
+allsel,below,volume
+J_3 = turns_3*I_solenoid/((Ro_3-Ri_3)*(Zmax_3-Zmin_3))
+BFE, ALL, Js,,,J_3
+
+!Set current
+allsel
+cmsel,s,Magnet_4a
+cmsel,a,Magnet_4b
+cmsel,a,Magnet_4c
+allsel,below,volume
+J_4 = turns_4*I_solenoid/((Ro_4-Ri_4)*(Zmax_4-Zmin_4))
+BFE, ALL, Js,,,J_4
+
+!Set current
+allsel
+cmsel,s,Magnet_5a
+cmsel,a,Magnet_5b
+cmsel,a,Magnet_5c
+allsel,below,volume
+J_5 = turns_5*I_solenoid/((Ro_5-Ri_5)*(Zmax_5-Zmin_5))
+BFE, ALL, Js,,,J_5
+
+!Set current magnet 6
+allsel
+cmsel,s,Magnet_6
+allsel,below,volume
+!eSEL,r,cent,z,Zmin_6,Zmax_6,,
+J_6 = turns_6*I_solenoid/((Ro_6-Ri_6)*(Zmax_6-Zmin_6))
+BFE, ALL, Js,,,J_6
+
+!Set current magnet 7
+allsel
+cmsel,s,Magnet_7
+allsel,below,volume
+!eSEL,r,cent,z,Zmin_7,Zmax_7,,
+J_7 = turns_7*I_solenoid/((Ro_7-Ri_7)*(Zmax_7-Zmin_7))
+BFE, ALL, Js,,,J_7
+
+!Set current magnet 8
+allsel
+cmsel,s,Magnet_8
+allsel,below,volume
+!eSEL,r,cent,z,Zmin_8,Zmax_8,,
+J_8 = turns_8*I_solenoid/((Ro_8-Ri_8)*(Zmax_8-Zmin_8))
+BFE, ALL, Js,,,J_8
+
+!Set current magnet 9
+allsel
+cmsel,s,Magnet_9
+allsel,below,volume
+!eSEL,r,cent,z,Zmin_9,Zmax_9,,
+J_9 = turns_9*I_solenoid/((Ro_9-Ri_9)*(Zmax_9-Zmin_9))
+BFE, ALL, Js,,,J_9
+
+
+
+! Current densities for conductor will be applied in solution loop
+
+allsel
+CMGRP,Conductor,Cable_1,Cable_2,Cable_3,Cable_4,Cable_5
+
+
+allsel
+
+
+csys,0
+/SOLU
+
+ANTYPE,STATIC
+
+!EQSLV,SPARSE!
+
+! Az boundary conditions
+da,92,az,0
+da,95,az,0
+da,96,az,0
+da,98,az,0
+
+! Loop through different timesteps with different currents
+*do,istep,1,nsteps,1
+    
+    ! Update current density for this timestep
+    *set,J_total,totalCurr(istep)/(cable_height*cable_width)
+    
+    ! Clear previous current densities
+    ! LSCLEAR,JS
+    
+    ! Apply current densities to conductor components
+    csys,0
+    esys,0
+    cmsel,s,Cable_1
+    allsel,below,volume
+    BFE, ALL, Js,,,,-J_total
+
+    cmsel,s,Cable_3
+    allsel,below,volume
+    BFE, ALL, Js,,,-J_total
+
+    cmsel,s,Cable_5
+    allsel,below,volume
+    BFE, ALL, Js,,,,J_total
+
+    csys,14
+    esys,14
+    cmsel,s,Cable_2
+    allsel,below,volume
+    BFE, ALL, Js,,,-J_total
+
+    csys,15
+    esys,15
+    cmsel,s,Cable_4
+    allsel,below,volume
+    BFE, ALL, Js,,,-J_total
+
+    csys,16
+    esys,16
+    cmsel,s,Cable_6
+    allsel,below,volume
+    BFE, ALL, Js,,,-J_total
+
+    allsel
+    
+    ! Set time for this load step
+    time,istep
+    
+    ! Solve for this timestep
+    solve
+    
+*enddo
+
+finish
+
+/post1
+
+! Post-process results for all timesteps
+*do,istep,1,nsteps,1
+    
+    ! Read results for this timestep
+    set,istep
+    
+    ! Output current information
+    *msg,info
+    Processing timestep %G with current = %G A
+    istep,totalCurr(istep)
+    
+    ! Define path for magnetic field along centerline
+    !PATH,NAME,nPts,nSets,nDiv
+    PATH,Center_line,2,20,50
+    !PPATH,POINT,NODE,X,Y,Z,CS
+    PPATH, 1,, 0, 0, -Zmax_1*3, 0
+    PPATH, 2,, 0, 0, Zmax_1*3, 0
+    !PDEF,Lab,Item,Comp,Avglab
+    PDEF,Bx,B,x,avg
+    PDEF,By,B,y,avg
+    PDEF,Bz,B,z,avg
+    
+    ! Plot for this timestep
+    PLPATH,Bx,By,Bz
+    
+    ! Optional: Save images for each timestep
+    /show,png
+    /view,1,1,1,1
+    /IMAGE,save,Balongaxis_compBOX_step%istep%,png
+    
+*enddo
+
+! Set to last timestep for final display
+set,nsteps
+
+/REPLOT 
+! /show,png                ! Set the output format to PNG (or another format like JPG or BMP)
+! /view,1,1,1,1             ! Ensure the correct view is set (optional, to define the view you want)
+! /IMAGE,save,Balongaxis_compBOX,png
+
+
+

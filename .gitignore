@@ -1,0 +1,53 @@
+# Large binary tool installations -- fetched via tools/fetch_tools.{ps1,sh}.
+# Keep MANIFEST.sha256 + fetch scripts + tools/README.md in git.
+tools/freecad/
+tools/paraview/
+
+# Maintainer-local staging dir for repackaging tool archives before release upload
+tools_release_staging/
+
+# Run data
+data/
+
+# Large binary simulation files (exceed GitHub 100 MB limit)
+scripts/meshconverter/mesh.k
+scripts/meshconverter/processed_input.k
+scripts/lsdyna/template_files/d3plot*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local logs and temporary plotting output
+logs_*.log
+_*.log
+tmp_presentation_plots/
+
+# Generated MAPDL artifacts from gps_minimal test runs
+scripts/apdl/test/gps_minimal/gps_test*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Claude Code local settings
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

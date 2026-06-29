@@ -1,0 +1,7 @@
+! Material properties -- thin shim that delegates to the shared canonical file.
+! Edit shared/materials/cable_materials_LN2.inp to change material values.
+!
+! impreg: 1 = Epoxy @ RT, 2 = Wax @ RT, 3 = Epoxy @ LN2, 4 = Wax @ LN2 (default)
+impreg = 4
+
+/INPUT,cable_materials_LN2,inp,,, 0

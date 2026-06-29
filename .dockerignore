@@ -1,0 +1,35 @@
+# Exclude heavyweight bundled Windows tools -- the container installs Linux
+# FreeCAD + ParaView via apt and resolves them via PATH.  Shipping these into
+# the build context would add several GB and slow every rebuild.
+tools/freecad/
+tools/paraview/
+
+# Run artefacts -- the container takes data/ as a volume mount, no need to
+# bake any prior run into the image.
+data/
+
+# Build / cache / VCS junk.
+.git/
+.gitignore
+.gitattributes
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.idea/
+.vscode/
+*.log
+
+# Backups + scratch.
+scripts/main/main_original_backup.py
+scripts/main/main_refactored.py
+
+# Local secrets / SSH-keys / env files (never bake into an image).
+.env
+.env.*
+**/id_rsa
+**/id_ed25519

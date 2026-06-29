@@ -1,0 +1,90 @@
+! Number of timesteps
+*set,nsteps,32
+
+! Define current array for different timesteps
+*DIM,totalCurr,array,nsteps
+totalCurr(1) = 13721
+totalCurr(2) = 13721
+totalCurr(3) = 13619
+totalCurr(4) = 13721
+
+totalCurr(5) = 13433
+totalCurr(6) = 13721
+
+totalCurr(7) = 13406
+totalCurr(8) = 13721
+
+totalCurr(9) = 13409
+totalCurr(10) = 13721
+totalCurr(11) = 13248
+totalCurr(12) = 13721
+totalCurr(13) = 13234
+totalCurr(14) = 13721
+totalCurr(15) = 13040
+totalCurr(16) = 13721
+totalCurr(17) = 12922
+totalCurr(18) = 13721
+totalCurr(19) = 12847
+totalCurr(20) = 13721
+totalCurr(21) = 12493
+totalCurr(22) = 13721
+totalCurr(23) = 12133
+totalCurr(24) = 13721
+totalCurr(25) = 11736
+totalCurr(26) = 13721
+totalCurr(27) = 11339
+totalCurr(28) = 13721
+totalCurr(29) = 10912
+totalCurr(30) = 13721
+totalCurr(31) = 9759
+totalCurr(32) = 13721
+
+
+
+*DIM,pres_pusher,array,nsteps
+pres_pusher(1) = 10.0*1e6
+pres_pusher(2) = 10.0*1e6
+pres_pusher(3) = 19.9*1e6
+pres_pusher(4) = 10.0*1e6
+
+pres_pusher(5) = 29.9*1e6
+pres_pusher(6) = 10.0*1e6
+
+pres_pusher(7) = 40.0*1e6
+pres_pusher(8) = 10.0*1e6
+
+pres_pusher(9) = 50.0*1e6
+pres_pusher(10) = 10.0*1e6
+
+pres_pusher(11) = 60.0*1e6
+pres_pusher(12) = 10.0*1e6
+
+pres_pusher(13) = 70.0*1e6
+pres_pusher(14) = 10.0*1e6
+
+pres_pusher(15) = 79.9*1e6
+pres_pusher(16) = 10.0*1e6
+
+pres_pusher(17) = 89.9*1e6
+pres_pusher(18) = 10.0*1e6
+
+pres_pusher(19) = 100.0*1e6
+pres_pusher(20) = 10.0*1e6
+
+pres_pusher(21) = 119.8*1e6
+pres_pusher(22) = 10.0*1e6
+
+pres_pusher(23) = 139.8*1e6
+pres_pusher(24) = 10.0*1e6
+
+pres_pusher(25) = 159.7*1e6
+pres_pusher(26) = 10.0*1e6
+
+pres_pusher(27) = 179.7*1e6
+pres_pusher(28) = 10.0*1e6
+
+pres_pusher(29) = 199.6*1e6
+pres_pusher(30) = 10.0*1e6
+
+pres_pusher(31) = 249.0*1e6
+pres_pusher(32) = 10.0*1e6

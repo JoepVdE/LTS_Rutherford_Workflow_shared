@@ -1,0 +1,76 @@
+! BOX9 loading schedule (SMACC_HF / R2D2 HF cable measurement)
+! Built from BOX9.txt: 14 pressure levels, baseline holding pressure 39.9 MPa.
+! Interleaved LOAD/UNLOAD pairs, same convention as box6_loading.inp:
+!   odd steps  (1, 3, ..., 27): load peaks (BOX9.txt column 1 pressures,
+!                               column 2 currents = Ic under load)
+!   even steps (2, 4, ..., 28): unload back to the 39.9 MPa baseline
+!                               (column 3 currents = Ic measured after unload;
+!                               step 2 reuses the virgin baseline 24681.5 A)
+! NOTE: unlike box6_loading.inp (which held the unload current constant at the
+! virgin Ic), the unload steps here carry the MEASURED after-unload Ic from
+! BOX9.txt column 3, since BOX9 shows real unloaded-Ic degradation.
+
+! Number of timesteps
+*set,nsteps,28
+
+! Define current array for different timesteps
+*DIM,totalCurr,array,nsteps
+totalCurr(1)  = 24681.5
+totalCurr(2)  = 24681.5
+totalCurr(3)  = 24543
+totalCurr(4)  = 25031
+totalCurr(5)  = 24252
+totalCurr(6)  = 24428.5
+totalCurr(7)  = 24410
+totalCurr(8)  = 24630
+totalCurr(9)  = 24185
+totalCurr(10) = 24492
+totalCurr(11) = 24199
+totalCurr(12) = 24594
+totalCurr(13) = 23963
+totalCurr(14) = 24407
+totalCurr(15) = 23360
+totalCurr(16) = 24379
+totalCurr(17) = 23185
+totalCurr(18) = 24308
+totalCurr(19) = 22934
+totalCurr(20) = 24026
+totalCurr(21) = 22134
+totalCurr(22) = 23943
+totalCurr(23) = 21704
+totalCurr(24) = 23809
+totalCurr(25) = 20628
+totalCurr(26) = 23983
+totalCurr(27) = 20119
+totalCurr(28) = 23151
+
+! Pusher pressure schedule
+*DIM,pres_pusher,array,nsteps
+pres_pusher(1)  =  39.9*1e6
+pres_pusher(2)  =  39.9*1e6
+pres_pusher(3)  =  49.9*1e6
+pres_pusher(4)  =  39.9*1e6
+pres_pusher(5)  =  60.0*1e6
+pres_pusher(6)  =  39.9*1e6
+pres_pusher(7)  =  70.0*1e6
+pres_pusher(8)  =  39.9*1e6
+pres_pusher(9)  =  80.0*1e6
+pres_pusher(10) =  39.9*1e6
+pres_pusher(11) =  89.9*1e6
+pres_pusher(12) =  39.9*1e6
+pres_pusher(13) =  99.9*1e6
+pres_pusher(14) =  39.9*1e6
+pres_pusher(15) = 119.8*1e6
+pres_pusher(16) =  39.9*1e6
+pres_pusher(17) = 139.8*1e6
+pres_pusher(18) =  39.9*1e6
+pres_pusher(19) = 159.7*1e6
+pres_pusher(20) =  39.9*1e6
+pres_pusher(21) = 179.6*1e6
+pres_pusher(22) =  39.9*1e6
+pres_pusher(23) = 199.6*1e6
+pres_pusher(24) =  39.9*1e6
+pres_pusher(25) = 224.7*1e6
+pres_pusher(26) =  39.9*1e6
+pres_pusher(27) = 249.5*1e6
+pres_pusher(28) =  39.9*1e6

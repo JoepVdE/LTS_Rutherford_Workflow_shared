@@ -1,0 +1,99 @@
+! =========================================================
+! 8-PP-radial.inp  --  Post-processing for radial pressure loading
+!
+! Assumptions:
+!   - presArray(1..n_timesteps) and n_timesteps must be defined before this
+!     file is called (set by 5-BC-radial.inp).
+!   - Each load step K runs TIME from K-1 to K; pressure ramps linearly from
+!     presArray(K-1) (or 0 for K=1) to presArray(K).
+!   - FX_analytical [N/m depth] = FSUM on nset_left (SFL-driven face, FX component)
+!   - FX_reaction  [N/m depth]: FSUM on nset_right (UX-constrained wall)
+!   - nset_left / nset_right / nset_top node components defined in 5-BC-radial.inp
+!
+! Output files (all SI -- metres, Newtons):
+!   fd_radial_%usecase%.txt  -- per substep:
+!       LoadStep, SubStep, Time(s), FX_analytical(N/m), FX_reaction(N/m)
+!   ux_left_%usecase%.txt    -- per (substep, node):
+!       LoadStep, SubStep, NodeID, UX(m)
+!
+!   Mean UX and stress/strain curves are computed in Python.
+! =========================================================
+
+/POST1
+
+! === Count left nodes once (for traversal loop bounds) ===
+allsel
+cmsel,s,nset_left,node
+*GET,nb_left,NODE,0,COUNT
+
+allsel
+
+! === Query actual number of solved load steps ===
+SET,LAST
+*GET,actual_n_loadsteps,ACTIVE,0,SET,LSTP
+
+! === Initialise output files with headers ===
+/DELETE,'pp/fd_radial_%usecase%','txt'
+*cfopen,'pp/fd_radial_%usecase%','txt',,'append'
+*VWRITE,'LoadStep','SubStep','Time (s)','FX_analytical (N/m)','FX_reaction (N/m)'
+(A10,2X,A10,2X,A12,2X,A22,2X,A22)
+*cfclos
+
+/DELETE,'pp/ux_left_%usecase%','txt'
+*cfopen,'pp/ux_left_%usecase%','txt',,'append'
+*VWRITE,'LoadStep','SubStep','NodeID','UX (m)'
+(A10,2X,A10,2X,A10,2X,A14)
+*cfclos
+
+! === Main substep loop ===
+*DO,K,1,actual_n_loadsteps
+
+    *GET,nset_first_K,ACTIVE,0,SET,NSET,FIRST,K
+    *GET,nset_last_K, ACTIVE,0,SET,NSET,LAST,K
+    n_sub_K = nset_last_K - nset_first_K + 1
+
+    *DO,L,1,n_sub_K
+
+        SET,K,L
+        *GET,t_cur,ACTIVE,0,SET,TIME
+
+        ! Applied radial force on left boundary (SFL pressure-loaded face, FX component):
+        allsel
+        cmsel,s,nset_left,node
+        FSUM
+        *GET,FX_analytical,FSUM,0,ITEM,FX
+
+        ! Reaction force at right wall (UX-constrained):
+        allsel
+        cmsel,s,nset_right,node
+        FSUM
+        *GET,FX_reaction,FSUM,0,ITEM,FX
+
+        *cfopen,'pp/fd_radial_%usecase%','txt',,'append'
+        *VWRITE,K,L,t_cur,FX_analytical,FX_reaction
+        (F10.0,2X,F10.0,2X,E14.6,2X,E14.6,2X,E14.6)
+        *cfclos
+
+        ! --- Write UX for every left wall node ---
+        ! Scalar cursor traversal avoids array(loop_var) subscript expansion
+        ! issues in *GET and *VWRITE inside *DO loops.
+        allsel
+        cmsel,s,nset_left,node
+        cur_nid = 0
+        *GET,cur_nid,NODE,0,NUM,MIN
+        *cfopen,'pp/ux_left_%usecase%','txt',,'append'
+        *DO,jj,1,nb_left
+            *GET,ux_jj,NODE,cur_nid,U,X
+            *VWRITE,K,L,cur_nid,ux_jj
+            (F10.0,2X,F10.0,2X,F10.0,2X,E14.6)
+            *GET,cur_nid,NODE,cur_nid,NXTH
+        *ENDDO
+        *cfclos
+
+        allsel
+
+    *ENDDO
+
+*ENDDO
+
+allsel

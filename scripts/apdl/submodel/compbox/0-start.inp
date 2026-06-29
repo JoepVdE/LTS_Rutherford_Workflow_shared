@@ -1,0 +1,98 @@
+! Model of rutherfords cable
+! Joep Van den Eijnden
+! 23/10/2024
+! /INPUT,0-start,inp
+
+FINISH  
+/CLEAR,START
+cases = 6
+n_strands = 21
+n_stacks = 1
+side_support = 0 !1 
+one_area_impreg = 0 !
+
+usecase = 'SMACC_HF'
+
+
+!half size of cable
+x_cab = 6.87e-3
+y_cab = 1.18e-3 !
+
+
+
+
+/UNITS,SI
+
+/PREP7
+/FACET,FINE  
+
+/PNUM,KP,0
+/PNUM,LINE,0
+/PNUM,AREA,1
+/PNUM,VOLU,0
+/PNUM,NODE,0
+/PNUM,TABN,0
+/PNUM,SVAL,0
+/PNUM,DOMA,0
+/NUMBER,0   
+/PNUM,ELEM,0
+
+/RGB,INDEX,100,100,100, 0   
+/RGB,INDEX, 80, 80, 80,13   
+/RGB,INDEX, 60, 60, 60,14   
+/RGB,INDEX, 0, 0, 0,15  
+/REPLOT 
+
+! Physical definitions
+tref,293 
+
+
+/NERR, 200, 999999,,, 0 !disable stop warninig/error funciton
+
+
+/input,1-material_properties,inp
+
+*DO,icase,1,cases
+! Full geometry / load-step reset between cases. The original
+! aclear/edele/lsdele/ndele only un-meshes; the geometric definitions
+! (areas, lines, keypoints) leaked from case to case and broke boolean
+! ops in 2-geo with BTOL out of scale. See [[feedback-apdl-inline-comment-quirk]]
+! and the build deck for details.
+allsel
+aclear,all
+edele,all
+ndele,all
+adele,all,,,1
+ldele,all,,,1
+kdele,all
+lsclear,all
+NUMSTR,KP,0
+NUMSTR,LINE,0
+NUMSTR,AREA,0
+BTOL,DEFA
+/title,submodel_cable_%n_strands%_%usecase%_%icase%
+/filname,submodel_cable_%n_strands%_%usecase%_%icase%,0
+allsel
+
+! /AUX3
+! DELETE, SET, 1, 1000
+! COMPRESS
+
+/PREP7
+/inp,2-geo,inp
+/inp,3-mesh,inp
+/inp,4-cont,inp
+
+
+
+
+/inp,5-BC-submodel,inp
+/inp,6-PP-submodel,inp
+
+*ENDDO
+
+
+/eof
+/inp,5-BC,inp
+/inp,6-PP,inp
+/eof

@@ -1,0 +1,199 @@
+! /POST1
+! SET,LAST  ! Use the last load step and substep
+! allsel
+! eplot
+
+! /input,4-PP-postprocess_new,inp
+/POST1                                ! Postprocessing in POST1
+cmsel,s,nset_top,node                  ! Select top nodes
+*VGET,n_top_index, NODE,,NLIST   ! Store selected node numbers into array
+
+cmsel,s,nset_left,node
+*VGET,n_left_index, NODE,,NLIST   ! Store selected node numbers into array
+
+
+
+! *GET, nb_top_layer, NODE, 0, COUNT    ! Number of selected top nodes
+
+
+
+/DELETE,'pp/fd_good_%usecase%','txt'
+*cfopen,'pp/fd_good_%usecase%','txt',,'append'
+
+*VWRITE,'Set', 'Time (s)', 'UY (m)', 'FY_total top (N)', 'UX (m)', 'Fx_total left (N)'
+(A6,2X,A12,2X,A12,2X,A16,2X,A16,2X,A16)
+*cfclos
+
+variable_temp1 = 0
+variable_temp2 = 0
+variable_temp3 = 0
+variable_temp4 = 0
+variable_temp5 = 0
+
+! Query actual number of solved load steps from results file
+! (handles partial convergence where fewer than n_timesteps steps were solved)
+SET,LAST
+*GET, actual_n_loadsteps, ACTIVE, 0, SET, LSTP
+
+*DO,K,1,actual_n_loadsteps
+    *cfopen,'pp/fd_good_%usecase%','txt',,'append'
+    *GET, nset_first_K, ACTIVE, 0, SET, NSET,FIRST,K  ! absolute set index of first substep of load step K
+    *GET, nset_last_K,  ACTIVE, 0, SET, NSET,LAST,K   ! absolute set index of last  substep of load step K
+    n_sub_K = nset_last_K - nset_first_K + 1          ! number of substeps in load step K
+
+    *DO,L,1,n_sub_K
+
+    
+        SET,K,L
+        *GET, variable_temp1, ACTIVE, 0, SET, TIME
+
+        allsel
+        cmsel,s,nset_top,node  
+        ! Get UY for first node in n_top_index array
+        *GET, variable_temp2, NODE, n_top_index(1), U, Y
+                    ! Select top nodes
+        FSUM
+        *GET,variable_temp3,FSUM,0,ITEM,FY
+
+
+        allsel
+        cmsel,s,nset_left,node 
+        *GET, variable_temp4, NODE, n_left_index(1), U, X
+        FSUM
+        *GET, variable_temp5, FSUM, 0, ITEM, FX
+
+
+        ! ! Sum FY for all top nodes
+        ! variable_temp3 = 0
+        ! *DO,J,1,nb_top_layer
+        !     *GET, fy_j, NODE, n_top_index(J), RF, Y
+        !     variable_temp3 = variable_temp3 + fy_j
+        ! *ENDDO
+
+        *VWRITE,K,variable_temp1, variable_temp2, variable_temp3, variable_temp4, variable_temp5
+        (F5.2,2X,E12.5,2X,E12.5,2X,E16.10,2X,E16.10,2X,E16.10)
+
+        ! *VWRITE,K,variable_temp6, variable_temp7, variable_temp8, variable_temp9, variable_temp10
+        ! (F5.2,2X,E12.5,2X,E12.5,2X,E16.10,2X,E16.10,2X,E16.10)
+        *ENDDO
+        *cfclos
+
+
+*ENDDO
+
+!*cfclos  ! Close the file
+
+
+! ! Loop over all selected nodes to sum FY
+! *DO, J, 1, nb_top_layer
+	! RFORCE,3,n_top_index(J),F,Y,!FY_j     ! Define FY variable for node J (var #3)
+	! VGET,Fy_temp(1),3                   ! Get time-history into Fy_temp array
+
+	! *DO, ist, 1, step_nb
+		! Fy_total(ist) = Fy_total(ist) + Fy_temp(J)
+	! *ENDDO
+! *ENDDO
+
+! h_sample = (2*n_stacks)*y_cab
+! *DO, ist, 1, step_nb
+	! _A(ist,3) = Fy_total(ist) ! [N]
+! *ENDDO
+
+
+! !!!! new 
+! /DELETE,'fd_temp','txt'
+! *cfopen,'fd_temp','txt',,'append'
+
+! *vwrite,
+! ('time (s)	', 'displacement UY (mm)	','Stress sig_Y (MPa)		','displacement Ux (mm)')
+
+! *VWRITE, _A(0,0), _A(0,1), _A(0,2),  _A(0,3)
+! %G, %G, %G, %G
+! *cfclos  ! Close the file
+
+
+! ===== Cross-section area summary by material and stack =====
+! Material numbers: 1=impregnation, 2=copper, 3=Nb3Sn, 4=insulation
+! Areas reported in mm^2 (VOLU of PLANE183 with unit thickness = 2D area in m^2)
+
+/DELETE,'pp/area_summary','txt'
+*cfopen,'pp/area_summary','txt'
+*VWRITE,'Stack','Copper_mm2','Nb3Sn_mm2','Impreg_mm2','Insul_mm2'
+(A8,2X,A14,2X,A14,2X,A14,2X,A14)
+*cfclos
+
+total_copper = 0
+total_nb3sn  = 0
+total_impreg = 0
+total_insul  = 0
+
+*DO,stack_nr,1,n_stacks
+
+    ! --- copper (mat 2): inner + outer strand ring areas per stack ---
+    allsel
+    asel,none
+    *DO,i_str,1,n_strands
+        cmsel,a,i_%stack_nr%_%i_str%
+        cmsel,a,o_%stack_nr%_%i_str%
+    *ENDDO
+    esla,s
+    esel,r,mat,,2
+    etable,ae_volu,volu
+    ssum
+    *get,area_copper,ssum,,item,ae_volu
+
+    ! --- Nb3Sn (mat 3): middle strand areas per stack ---
+    allsel
+    asel,none
+    *DO,i_str,1,n_strands
+        cmsel,a,m_%stack_nr%_%i_str%
+    *ENDDO
+    esla,s
+    esel,r,mat,,3
+    etable,ae_volu,volu
+    ssum
+    *get,area_nb3sn,ssum,,item,ae_volu
+
+    ! --- impregnation (mat 1): out_imp component per stack ---
+    allsel
+    cmsel,s,out_imp_%stack_nr%
+    esla,s
+    esel,r,mat,,1
+    etable,ae_volu,volu
+    ssum
+    *get,area_impreg,ssum,,item,ae_volu
+
+    ! --- insulation (mat 4): str_imp component per stack ---
+    allsel
+    cmsel,s,str_imp_%stack_nr%
+    esla,s
+    esel,r,mat,,4
+    etable,ae_volu,volu
+    ssum
+    *get,area_insul,ssum,,item,ae_volu
+
+    ! convert m^2 -> mm^2 and accumulate totals
+    tmp_cu   = area_copper * 1e6
+    tmp_nb   = area_nb3sn  * 1e6
+    tmp_im   = area_impreg * 1e6
+    tmp_ins  = area_insul  * 1e6
+
+    total_copper = total_copper + tmp_cu
+    total_nb3sn  = total_nb3sn  + tmp_nb
+    total_impreg = total_impreg + tmp_im
+    total_insul  = total_insul  + tmp_ins
+
+    *cfopen,'pp/area_summary','txt',,'append'
+    *VWRITE,stack_nr,tmp_cu,tmp_nb,tmp_im,tmp_ins
+    (F6.0,2X,E14.6,2X,E14.6,2X,E14.6,2X,E14.6)
+    *cfclos
+
+*ENDDO
+
+! --- write totals row ---
+*cfopen,'pp/area_summary','txt',,'append'
+*VWRITE,'TOTAL',total_copper,total_nb3sn,total_impreg,total_insul
+(A6,2X,E14.6,2X,E14.6,2X,E14.6,2X,E14.6)
+*cfclos
+
+allsel

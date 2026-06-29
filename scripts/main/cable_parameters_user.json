@@ -1,0 +1,467 @@
+{
+    "active_cable": "TEST_E_narrowkeyst_HEAVY",
+    "wire_material": {
+        "_comment": "Bilinear plasticity (MAT_PLASTIC_KINEMATIC) for copper wires in LS-DYNA. sigy_MPa: yield stress [MPa], etan_MPa: tangent modulus after yield [MPa].",
+        "sigy_MPa": 20,
+        "etan_MPa": 5000
+    },
+    "cablestack": {
+        "_comment_formulation": "Element formulation for the cablestack solve: 1 = generalized plane strain + mixed u-P (default, magnet operating physics), 0 = plane stress (matches unconfined Zwick test BC). Patched into 0-start.inp at copy time.",
+        "formulation": 1,
+        "_comment_max_parallel": "Max MAPDL containers run concurrently for independent load stages (local Docker runs only; each container holds one license seat). 1 = fully sequential.",
+        "max_parallel_stages": 4,
+        "_comment_impreg": "Impregnation material: 1=epoxy RT, 2=wax RT, 3=epoxy LN2, 4=wax LN2",
+        "impreg": 4,
+        "_comment_bc": "Boundary condition type for displacement_transverse: 'cyclic' (multi-step strain ramp) or 'linear' (single step). Applies only to the displacement_transverse stage.",
+        "bc_type": "cyclic",
+        "_comment_boundary": "Boundary type for ALL 4 load stages: 'constrained' = sidewalls fixed perpendicular to load (cable inside a rigid die); 'free' = sidewalls drop their perpendicular constraints and the anchor moves to the loaded-against wall (Poisson-bulge allowed, matches an unconfined Zwick test). 'linear' + 'free' is not implemented.",
+        "boundary_type": "constrained",
+        "_comment_stages": "APDL cablestack simulations to run after templates are written. Each entry is a stage name in dependency order; dependencies are auto-included. The `build` stage (0-start.inp) writes base.db (mesh + contacts only, no SOLVE); the four load stages RESUME base.db and apply their own BCs from an UNDEFORMED state. Available: build (0-start.inp), displacement_transverse (00-restart-transverse.inp), displacement_radial (00-restart-radial.inp), pressure_transverse (00-restart-pressure.inp), pressure_radial (00-restart-pressure-radial.inp). Empty list = generate .inp files only, do not launch MAPDL. --no-cablestack overrides this to [].",
+        "stages": [
+            "displacement_transverse"
+        ],
+        "_comment_x_cab_margin": "Extra margin added to x_cab (half cable width) in mm",
+        "x_cab_margin_mm": 0.5,
+        "_comment_mesh_size": "Reference element size for impregnation and insulation free-mesh [um] at D_Strand = 0.85 mm. Applied size scales as value * (D_Strand / 0.85).",
+        "mesh_size_um": 80,
+        "_comment_strand_mesh_size": "Reference element size for strand areas free-mesh [um] at D_Strand = 0.85 mm. Applied size scales as value * (D_Strand / 0.85).",
+        "strand_mesh_size_um": 80,
+        "_comment_pressure": "Pressure loading (used by both pressure_transverse via 5-BC-pressure.inp and pressure_radial via 5-BC-radial.inp; also the -free siblings). Forces (peak_force_N, min_force_N) are converted to pressure via area = 2*x_cab * gauge_length_mm*1e-3. ramp_pressures_MPa: fixed intermediate peaks applied directly as SFL [MPa]. Cycle: ramp0, unload, ramp1, unload, ..., rampN, peak, unload.",
+        "pressure": {
+            "gauge_length_mm": 15.0,
+            "peak_force_N": 45000,
+            "min_force_N": 200,
+            "ramp_pressures_MPa": [
+                50.0,
+                100.0,
+                150.0
+            ]
+        }
+    },
+    "compression_box": {
+        "_comment": "Compression box simulation (workflow step 9, opt-in): 3D parent MAG box solve -> .rmg->VTU -> field tables interpolated onto strand centers -> one-turn 2D submodel (one case per stack cross-section) -> strain/Ic analysis. Needs the step-7 conformal-mesh geometry. Force-run with --compbox, or standalone on the latest run with --compbox-only.",
+        "enabled": false,
+        "_comment_solver": "'local' = Docker MAPDL container (same compose service as cablestack), 'hpc' = SSH-reachable SLURM cluster (default ETH Euler; override via HPC_HOST/HPC_USER/HPC_REMOTE_BASE env vars; one job per solve; needs SSH key). The --hpc CLI flag forces 'hpc'.",
+        "solver": "local",
+        "_comment_measurement": "SINGLE SOURCE for the loading schedule AND the analysis reference: a BOX9.txt-style table (whitespace-separated columns: peak pressure [MPa], Ic under load [A], Ic after unload [A or NaN]; row 1 = baseline/virgin). At staging time compbox_stage.py generates the interleaved load/unload nsteps/totalCurr/pres_pusher block from it and writes it into BOTH the parent box deck (loading_schedule.inp) and 5-BC-submodel.inp (sentinel block), so they cannot drift. Bare names resolve against scripts/apdl/parentmodel/compbox/; absolute paths work too. Audit: <run>/APDL/compbox/loading_schedule.json.",
+        "measurement_file": "BOX9.txt",
+        "_comment_nsteps": "Optional cap on the number of loadsteps (0 = all pairs from the measurement table). Use an even value to keep load/unload pairs intact, e.g. 14 to stop after the 7th pressure level.",
+        "nsteps": 0,
+        "_comment_analysis": "Run complete_analysis.py + ic_calculator.py after the submodel solve.",
+        "run_analysis": true,
+        "_comment_impreg": "Impregnation material for the submodel (1=epoxy RT, 2=wax RT, 3=epoxy LN2, 4=wax LN2). Defaults to cablestack.impreg when omitted.",
+        "_comment_local": "Docker solve resources: CPUs and memory per MPI rank [MB].",
+        "local_ncpu": 4,
+        "local_memory_mb": 4000,
+        "_comment_hpc": "SLURM --ntasks for both the parent MAG and submodel jobs.",
+        "hpc_ntasks": 24
+    },
+    "cables": {
+        "R2D2_LF": {
+            "cable_name": "R2D2_LF",
+            "cable_width": 12.74,
+            "cable_height": 1.31,
+            "cable_length": 39.5,
+            "T_pitch": 79.0,
+            "N_Strands": 34,
+            "D_Strand": 0.7,
+            "n_stacks": 6,
+            "stack_height_mm": 1.61,
+            "wire": {
+                "_comment": "RVE sub-element parameters (was SMACCLF preset). Convention: centre -> bronze -> Nb3Sn -> Nb barrier -> [D_CORE_EQ_UM] -> Cu sleeve -> outer hex. D_CORE_EQ_UM is the Nb-barrier-outer equivalent diameter (= sub-element diameter). CU_SLEEVE_THICKNESS_UM is the radial Cu spacing from D_CORE_EQ to the outer hex; sets pitch independent of CU_NONCU. CU_NONCU is informational/check only -- the geometric Cu/non-Cu is computed from (A_wire - N_NB3SN*A_subelement)/(N_NB3SN*A_subelement). BRONZE_FRAC is the bronze area fraction inside the Nb3Sn hex.",
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "R2D2_HF": {
+            "cable_name": "R2D2_HF",
+            "cable_width": 12.74,
+            "cable_height": 2.06,
+            "cable_length": 39.5,
+            "T_pitch": 79.0,
+            "N_Strands": 21,
+            "D_Strand": 1.1,
+            "n_stacks": 6,
+            "stack_height_mm": 2.36,
+            "wire": {
+                "_comment": "RVE sub-element parameters (was SMACCHF preset).",
+                "N_NB3SN": 162,
+                "N_TOTAL": 169,
+                "D_CORE_EQ_UM": 64.0,
+                "CU_SLEEVE_THICKNESS_UM": 2.2,
+                "CU_NONCU": 0.8,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "CD1": {
+            "cable_name": "CD1",
+            "cable_width": 9.55,
+            "cable_height": 1.62,
+            "cable_length": 39.5,
+            "T_pitch": 79.0,
+            "N_Strands": 21,
+            "D_Strand": 0.85,
+            "n_stacks": 10,
+            "stack_height_mm": 1.92,
+            "mesh_size_um": 30,
+            "strand_mesh_size_um": 30,
+            "wire": {
+                "_comment": "RVE sub-element parameters (was MQXF preset).",
+                "N_NB3SN": 108,
+                "N_TOTAL": 127,
+                "D_CORE_EQ_UM": 55.0,
+                "CU_SLEEVE_THICKNESS_UM": 5.94,
+                "CU_NONCU": 1.2,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "SMACC_HF": {
+            "cable_name": "SMACC_HF",
+            "cable_width": 12.74,
+            "cable_height": 2.06,
+            "cable_length": 39.5,
+            "T_pitch": 79.0,
+            "N_Strands": 21,
+            "D_Strand": 1.1,
+            "n_stacks": 6,
+            "stack_height_mm": 2.36,
+            "wire": {
+                "_comment": "Clone of R2D2_HF (the former SMACCHF preset). RVE sub-element parameters.",
+                "N_NB3SN": 162,
+                "N_TOTAL": 169,
+                "D_CORE_EQ_UM": 64.0,
+                "CU_SLEEVE_THICKNESS_UM": 2.2,
+                "CU_NONCU": 0.8,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_A_thinmany_LIGHT": {
+            "_comment": "Synthetic test cable (2026-06-24): TEST_A_thinmany at LIGHT compaction (cable_height = 1.02 * 2*D_Strand). 5 architectures x 3 levels. cable_width ~ 0.80 * W_rutherford (0.65 for TEST_E). Wire blocks are R2D2_LF stub clones (RVE off via --no-rve).",
+            "cable_name": "TEST_A_thinmany_LIGHT",
+            "cable_width": 12.338,
+            "cable_height": 1.02,
+            "cable_length": 35.0,
+            "T_pitch": 70.0,
+            "N_Strands": 40,
+            "D_Strand": 0.5,
+            "n_stacks": 5,
+            "stack_height_mm": 1.32,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_A_thinmany_NOM": {
+            "cable_name": "TEST_A_thinmany_NOM",
+            "cable_width": 12.338,
+            "cable_height": 0.92,
+            "cable_length": 35.0,
+            "T_pitch": 70.0,
+            "N_Strands": 40,
+            "D_Strand": 0.5,
+            "n_stacks": 5,
+            "stack_height_mm": 1.22,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_A_thinmany_HEAVY": {
+            "cable_name": "TEST_A_thinmany_HEAVY",
+            "cable_width": 12.338,
+            "cable_height": 0.82,
+            "cable_length": 35.0,
+            "T_pitch": 70.0,
+            "N_Strands": 40,
+            "D_Strand": 0.5,
+            "n_stacks": 5,
+            "stack_height_mm": 1.12,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_B_medstd_LIGHT": {
+            "cable_name": "TEST_B_medstd_LIGHT",
+            "cable_width": 13.709,
+            "cable_height": 1.632,
+            "cable_length": 40.0,
+            "T_pitch": 80.0,
+            "N_Strands": 28,
+            "D_Strand": 0.8,
+            "n_stacks": 5,
+            "stack_height_mm": 1.932,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_B_medstd_NOM": {
+            "cable_name": "TEST_B_medstd_NOM",
+            "cable_width": 13.709,
+            "cable_height": 1.472,
+            "cable_length": 40.0,
+            "T_pitch": 80.0,
+            "N_Strands": 28,
+            "D_Strand": 0.8,
+            "n_stacks": 5,
+            "stack_height_mm": 1.772,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_B_medstd_HEAVY": {
+            "cable_name": "TEST_B_medstd_HEAVY",
+            "cable_width": 13.709,
+            "cable_height": 1.312,
+            "cable_length": 40.0,
+            "T_pitch": 80.0,
+            "N_Strands": 28,
+            "D_Strand": 0.8,
+            "n_stacks": 5,
+            "stack_height_mm": 1.612,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_C_widethick_LIGHT": {
+            "cable_name": "TEST_C_widethick_LIGHT",
+            "cable_width": 14.623,
+            "cable_height": 2.04,
+            "cable_length": 45.0,
+            "T_pitch": 90.0,
+            "N_Strands": 24,
+            "D_Strand": 1.0,
+            "n_stacks": 5,
+            "stack_height_mm": 2.34,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_C_widethick_NOM": {
+            "cable_name": "TEST_C_widethick_NOM",
+            "cable_width": 14.623,
+            "cable_height": 1.84,
+            "cable_length": 45.0,
+            "T_pitch": 90.0,
+            "N_Strands": 24,
+            "D_Strand": 1.0,
+            "n_stacks": 5,
+            "stack_height_mm": 2.14,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_C_widethick_HEAVY": {
+            "cable_name": "TEST_C_widethick_HEAVY",
+            "cable_width": 14.623,
+            "cable_height": 1.64,
+            "cable_length": 45.0,
+            "T_pitch": 90.0,
+            "N_Strands": 24,
+            "D_Strand": 1.0,
+            "n_stacks": 5,
+            "stack_height_mm": 1.94,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_D_fewlarge_LIGHT": {
+            "cable_name": "TEST_D_fewlarge_LIGHT",
+            "cable_width": 14.532,
+            "cable_height": 2.448,
+            "cable_length": 50.0,
+            "T_pitch": 100.0,
+            "N_Strands": 20,
+            "D_Strand": 1.2,
+            "n_stacks": 5,
+            "stack_height_mm": 2.748,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_D_fewlarge_NOM": {
+            "cable_name": "TEST_D_fewlarge_NOM",
+            "cable_width": 14.532,
+            "cable_height": 2.208,
+            "cable_length": 50.0,
+            "T_pitch": 100.0,
+            "N_Strands": 20,
+            "D_Strand": 1.2,
+            "n_stacks": 5,
+            "stack_height_mm": 2.508,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_D_fewlarge_HEAVY": {
+            "cable_name": "TEST_D_fewlarge_HEAVY",
+            "cable_width": 14.532,
+            "cable_height": 1.968,
+            "cable_length": 50.0,
+            "T_pitch": 100.0,
+            "N_Strands": 20,
+            "D_Strand": 1.2,
+            "n_stacks": 5,
+            "stack_height_mm": 2.268,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_E_narrowkeyst_LIGHT": {
+            "cable_name": "TEST_E_narrowkeyst_LIGHT",
+            "cable_width": 7.602,
+            "cable_height": 1.428,
+            "cable_length": 37.5,
+            "T_pitch": 75.0,
+            "N_Strands": 22,
+            "D_Strand": 0.7,
+            "n_stacks": 5,
+            "stack_height_mm": 1.728,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_E_narrowkeyst_NOM": {
+            "cable_name": "TEST_E_narrowkeyst_NOM",
+            "cable_width": 7.602,
+            "cable_height": 1.288,
+            "cable_length": 37.5,
+            "T_pitch": 75.0,
+            "N_Strands": 22,
+            "D_Strand": 0.7,
+            "n_stacks": 5,
+            "stack_height_mm": 1.588,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        },
+        "TEST_E_narrowkeyst_HEAVY": {
+            "cable_name": "TEST_E_narrowkeyst_HEAVY",
+            "cable_width": 7.602,
+            "cable_height": 1.148,
+            "cable_length": 37.5,
+            "T_pitch": 75.0,
+            "N_Strands": 22,
+            "D_Strand": 0.7,
+            "n_stacks": 5,
+            "stack_height_mm": 1.448,
+            "wire": {
+                "N_NB3SN": 78,
+                "N_TOTAL": 91,
+                "D_CORE_EQ_UM": 50.0,
+                "CU_SLEEVE_THICKNESS_UM": 6.75,
+                "CU_NONCU": 2.0,
+                "NB_THICKNESS_UM": 2.0,
+                "BRONZE_FRAC": 0.55,
+                "REFINE_MESH": false
+            }
+        }
+    }
+}

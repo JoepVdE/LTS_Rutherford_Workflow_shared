@@ -1,0 +1,84 @@
+! ==============================
+! ==== boundary conditions - pressure loading =====
+! ==============================
+! Fresh-start transverse pressure: this BC deck assumes an UNDEFORMED
+! cable (RESUMEd from base.db via 0-start-pressure.inp). Independent
+! of displacement_transverse -- no DDELE of carried-over constraints,
+! no inherited preload state.
+!
+! LEFT/RIGHT:  UX = 0
+! BOTTOM:      UX = UY = 0
+! TOP:         SFL pressure on lines (UY free, driven face)
+SELTOL, 1.E-7
+
+!!! node sets (needed for postprocessing in 7-PP.inp)
+allsel
+nsel,s,loc,y,-y_cab
+nsel,r,loc,x,-x_cab+1.e-6,x_cab-1.e-6
+cm,nset_bot,node
+
+allsel
+nsel,s,loc,x,x_cab
+cm,nset_right,node
+
+nsel,s,loc,x,-x_cab
+cm,nset_left,node
+
+allsel
+nsel,s,loc,y,(2*n_stacks-1)*y_cab
+nsel,r,loc,x,-x_cab,x_cab
+cm,nset_top,node
+
+!!! line set for top pressure (SFL is the correct 2D load application on line edges)
+allsel
+lsel,s,loc,y,(2*n_stacks-1)*y_cab
+cm,lset_top,line
+
+! apply fixed BCs
+alls
+CMSEL, s, nset_left, node
+D, nset_left, Ux, 0
+
+CMSEL, s, nset_right, node
+D, nset_right, Ux, 0
+
+CMSEL, s, nset_bot, node
+D, nset_bot, Uy, 0
+D, nset_bot, Ux, 0
+
+! Top wall is the driven face under SFL pressure -- no displacement constraint.
+
+allsel
+
+! Solver settings + outres policy + GSBDATA (shared across all BC decks)
+/inp,5-BC-solver-settings,inp
+
+! presArray values are absolute pressures [Pa], patched from cable_parameters_user.json [cablestack.pressure]
+! Forces (peak_force_N, min_force_N) are converted to Pa via area = 2*x_cab * gauge_length_mm*1e-3
+! Cycle: ramp0, unload, ramp1, unload, ..., rampN, peak, unload
+! <<<PRESSURE_CYCLE_BLOCK_START>>>
+! area = 2*x_cab*gauge_L = placeholder
+n_timesteps = 7
+*dim,presArray,array,n_timesteps
+presArray(1) = 5.000000E+07   ! ramp 1: 50 MPa
+presArray(2) = 8.333333E+05   ! unload: 200 N
+presArray(3) = 1.000000E+08   ! ramp 2: 100 MPa
+presArray(4) = 8.333333E+05   ! unload: 200 N
+presArray(5) = 1.500000E+08   ! ramp 3: 150 MPa
+presArray(6) = 1.875000E+08   ! peak: 45000 N
+presArray(7) = 8.333333E+05   ! unload: 200 N
+! <<<PRESSURE_CYCLE_BLOCK_END>>>
+
+*do,timestep,1,n_timesteps
+    TIME, timestep
+    pres_val = presArray(timestep)
+
+    allsel
+    CMSEL, s, lset_top, line
+    SFL,all,PRES,pres_val
+
+    alls
+    SOLVE
+    /COM,Finished pressure solve for timestep %timestep% of %n_timesteps%
+
+*enddo

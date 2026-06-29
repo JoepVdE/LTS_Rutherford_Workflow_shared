@@ -1,0 +1,54 @@
+services:
+  mapdl:
+    # Registry chosen by REGISTRY_PREFIX env var; default = PSI Gitea.
+    # CERN users: export REGISTRY_PREFIX=registry.cern.ch/chart-magnum
+    image: ${REGISTRY_PREFIX:-gitea.psi.ch/vanden_j}/mechanical:25.2  # ANSYS Mechanical bundle (provides ansys251)
+    # container_name omitted: Docker generates a unique name from the -p project flag,
+    # allowing multiple parallel cables to run MAPDL simultaneously without colliding.
+    
+    entrypoint: ["/bin/bash", "/run_mapdl.sh"]
+    
+    volumes:
+      - ${MAPDL_RUN_DIR:-./run-mapdl}:/run
+      - ./run_mapdl.sh:/run_mapdl.sh:ro
+    
+    environment:
+      # ANSYS MAPDL settings (host env vars take precedence; defaults shown)
+      ANSYS_VERSION: "${ANSYS_VERSION:-252}"
+
+      # Input file to run
+      MAPDL_INPUT: "${MAPDL_INPUT:-0-start.inp}"
+
+      # Job name (creates jobname.rst, jobname.db, etc.)
+      MAPDL_JOBNAME: "${MAPDL_JOBNAME:-file}"
+
+      # Number of CPUs for distributed memory parallel
+      MAPDL_NCPU: "${MAPDL_NCPU:-2}"
+
+      # Memory allocation per MPI rank (MB)
+      MAPDL_MEMORY: "${MAPDL_MEMORY:-4000}"
+
+      # Additional MAPDL command-line options
+      MAPDL_EXTRA_ARGS: "${MAPDL_EXTRA_ARGS:-}"
+
+      # License servers (host env vars override)
+      ANSYSLI_SERVERS:       "${ANSYSLI_SERVERS:-1801@lic-ansys-research.ethz.ch:1055@winlic03.psi.ch}"
+      ANSYSLMD_LICENSE_FILE: "${ANSYSLMD_LICENSE_FILE:-1801@lic-ansys-research.ethz.ch:1055@winlic03.psi.ch}"
+
+      # Intel MPI settings for single-node Docker
+      I_MPI_FABRICS: "shm"
+      I_MPI_SHM_HEAP_VSIZE: "512"
+      # Disable Intel OpenMP affinity pinning. With Docker Desktop (WSL2)
+      # cpuset, sched_setaffinity returns EINVAL and Intel OMP aborts at
+      # startup with "OMP: Error #100 / System error #22: Invalid argument".
+      KMP_AFFINITY: "disabled"
+      OMP_NUM_THREADS: "1"
+    
+    shm_size: '8gb'  # Shared memory for MPI; increase if OOM with many ranks
+
+    # Cap MAPDL at 4 logical CPUs so it does not fight LS-DYNA (also capped
+    # at 4) on an 8-core box.  cpuset is avoided because Docker Desktop on
+    # WSL2 mishandles the cgroup mask for Intel OMP.
+    cpus: 2
+
+    working_dir: /run

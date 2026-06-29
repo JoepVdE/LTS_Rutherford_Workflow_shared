@@ -1,0 +1,46 @@
+! Restart deck: radial pressure-controlled loading.
+! RESUMEs base.db (post-mesh, pre-load) produced by 0-start.inp's `build` stage,
+! then applies a cyclic SFL pressure on the left wall.
+!
+! Independent of every other stage -- starts from the undeformed cable.
+
+FINISH
+/CLEAR,START
+
+RESUME,base,db
+
+! RESUME restored every parameter from 0-start.inp (n_strands, n_stacks,
+! x_cab, y_cab, side_support, one_area_impreg, formulation).
+! Only the usecase needs to differ for this stage.
+usecase = 'R2D2_LF_radial'
+
+/title,submodel_cable_%n_strands%_%usecase%
+/filname,submodel_cable_%n_strands%_%usecase%,0
+
+/UNITS,SI
+
+/PREP7
+/FACET,FINE
+
+/PNUM,KP,0
+/PNUM,LINE,0
+/PNUM,AREA,1
+/PNUM,VOLU,0
+/PNUM,NODE,0
+/PNUM,TABN,0
+/PNUM,SVAL,0
+/PNUM,DOMA,0
+/NUMBER,0
+/PNUM,ELEM,0
+
+/RGB,INDEX,100,100,100, 0
+/RGB,INDEX, 80, 80, 80,13
+/RGB,INDEX, 60, 60, 60,14
+/RGB,INDEX, 0, 0, 0,15
+/REPLOT
+
+tref,293
+
+/inp,5-BC-radial,inp
+/inp,8-PP-radial,inp
+/eof
