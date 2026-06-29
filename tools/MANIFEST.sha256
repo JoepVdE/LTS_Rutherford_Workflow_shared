@@ -5,5 +5,5 @@
 # FreeCAD 1.0.2 (Windows portable, conda build, Py 3.11): 699 MB compressed -> ~2.2 GB extracted
 # ParaView 6.0.1 (Windows, Python 3.12, msvc2017, AMD64): 1.3 GB compressed -> ~3.4 GB extracted
 #
-0756d3d47d93e499b33f42948d50449bc0244364d506fa54f8fabdfe8a20f311  freecad.zip   733010567   freecad
-98b64f4537d15b4b0b90fd72ccf333dfc8e9e83005569d732f8dbcf753ddc313  paraview.zip  1354274816  paraview
+0756d3d47d93e499b33f42948d50449bc0244364d506fa54f8fabdfe8a20f311  freecad.zip   733104994   freecad
+98b64f4537d15b4b0b90fd72ccf333dfc8e9e83005569d732f8dbcf753ddc313  paraview.zip  1354283359  paraview
