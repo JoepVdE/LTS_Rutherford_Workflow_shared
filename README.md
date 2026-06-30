@@ -106,15 +106,6 @@ export ANSYS_LICENSE_SERVER=1055@licenansys
 export ANSYS_LICENSE_SERVER="1055@licenansys:1801@lic-ansys-research.ethz.ch"
 ```
 
-**CERN extras** -- alongside `ANSYS_LICENSE_SERVER` you may also need:
-
-```bash
-export ANSYS_LOCK=OFF       # ignore stale per-jobname *.lock files left by aborted MAPDL runs (the cablestack job script already does `rm -f *.lock`, so this matters only for hand-launched MAPDL)
-export AWP_ROOT222=/ansys_inc   # only if you have a native Ansys 2022 R2 install at /ansys_inc; not used by the Docker images (which ship Ansys internally)
-```
-
-**Other sites:** if the auto-probe finds nothing reachable, set `ANSYS_LICENSE_SERVER` yourself -- the "no license server reachable" log line tells you exactly what to put there.
-
 ---
 
 ## Configuration
