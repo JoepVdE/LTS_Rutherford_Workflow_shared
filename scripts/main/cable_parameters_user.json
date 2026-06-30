@@ -1,5 +1,5 @@
 {
-    "active_cable": "TEST_E_narrowkeyst_HEAVY",
+    "active_cable": "R2D2_LF",
     "wire_material": {
         "_comment": "Bilinear plasticity (MAT_PLASTIC_KINEMATIC) for copper wires in LS-DYNA. sigy_MPa: yield stress [MPa], etan_MPa: tangent modulus after yield [MPa].",
         "sigy_MPa": 20,

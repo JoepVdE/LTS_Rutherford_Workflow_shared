@@ -1,28 +1,28 @@
-﻿# LTS Rutherford Cable Workflow
+# LTS Rutherford Cable Workflow
 
-End-to-end automated pipeline for **Nb3Sn LTS Rutherford-cable** simulation.
-One Python entry point chains:
+End-to-end automated pipeline for **Nb<sub>3</sub>Sn LTS Rutherford-cable** simulation. From a one-line cable preset, one Python entry point produces the deformed strand cross-section after compaction, four cyclic stress-strain curves (displacement / pressure × transverse / radial), and -- optionally -- a per-strand Ic-degradation estimate under the measured BOX9 magnet load schedule.
 
-1. **Cable parameter calculation** (twist pitch, strand layout, geometry).
-2. **FreeCAD** headless macro -> STEP geometry.
-3. **Ansys Mechanical** (Docker) sweep-hex meshing -> `mesh.k`.
-4. **LS-DYNA** (Docker) compaction solve.
-5. **ParaView** (`pvpython`) extraction of deformed strand cross-sections.
-6. **APDL submodel** -- conformal mesh fitted to deformed strand outlines.
-7. **Cablestack solve in MAPDL** -- 2D plane-stress (PLANE183 with
-   `KEYOPT(3)=0`), four independently selectable stages (displacement /
-   pressure x transverse / radial). Matches an unconfined Zwick-test BC.
-8. **Per-stage postprocess** -> stress-strain SVGs + tabular dumps.
-9. **Compression box simulation** *(opt-in)* -- 3D parent magnetic box solve ->
-   field tables interpolated onto the deformed strand positions -> one-turn 2D
-   submodel under the measured BOX9 load/current schedule -> strain + Ic
-   degradation analysis.
+The toolchain it stitches together: cable-parameter calculation → FreeCAD STEP → Ansys Mechanical mesh → LS-DYNA compaction → ParaView strand extraction → APDL conformal submodel → 4-stage MAPDL cablestack (2D plane-stress, matches an unconfined Zwick BC) → optional 3D compression-box magnetic coupling.
 
 ---
 
-## TL;DR
+## What one run produces
 
-**Containerised run (recommended -- works the same on Linux, macOS, Windows):**
+![Example R2D2_HF subplots](docs/example_R2D2_HF_subplots.svg)
+
+For each cable, one run writes (under `data/runs/<timestamp>_<cable>/`):
+
+- **Deformed strand mesh** (`stack/*.csv` from LS-DYNA → ParaView, plus a conformal APDL mesh under `APDL/submodel/apdl_runfolder/`).
+- **Four cyclic stress-strain curves**, one per cablestack stage (displacement/pressure × transverse/radial), each as a `.txt` table and an SVG (`pp/<usecase>_stress_strain.txt` and `plots/<usecase>_subplots.svg`, like the image above).
+- **`loading_cycle.json`** — the exact pressure / displacement schedule that was applied, plus the Nb<sub>3</sub>Sn modulus used (currently the 70 GPa standard; the RVE-homogenised override is in development).
+- **`metadata.json`** — tool versions, per-stage workflow status, license server seen at run time.
+- *(Opt-in step 9, compression box):* per-stack 3D magnetic field tables, one-turn submodel strains, and Ic-degradation CSVs/SVGs correlated against the measured BOX9 schedule.
+
+---
+
+## Quick start
+
+### Containerised (recommended -- same on Linux, macOS, Windows)
 
 ```bash
 docker build -t lts-cable .
@@ -30,162 +30,122 @@ docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$PWD/data:/app/data" \
     -e ANSYS_LICENSE_SERVER=1055@licenansys \
-    lts-cable --list-cables
+    -e REGISTRY_PREFIX=registry.cern.ch/chart-magnum \
+    lts-cable -c R2D2_LF
 ```
 
-**Native (Linux/macOS):**
+The container bundles Python 3.12 + FreeCAD + ParaView and uses Docker-out-of-Docker via the mounted socket to spawn the Ansys Mechanical / LS-DYNA / MAPDL sibling containers on the host daemon.
+
+### Native
 
 ```bash
-pip install -e .
-export ANSYS_LICENSE_SERVER=1055@licenansys   # CERN; see "License servers" below for ETH/PSI
-lts-cable --list-cables
+git clone https://github.com/JoepVdE/LTS_Rutherford_Workflow_shared
+cd LTS_Rutherford_Workflow_shared
+pwsh tools/fetch_tools.ps1                          # Windows only -- SHA256-verified FreeCAD + ParaView download
+pip install -e .[notebook]
+export ANSYS_LICENSE_SERVER=1055@licenansys         # CERN; see "License servers" for ETH / PSI
+export REGISTRY_PREFIX=registry.cern.ch/chart-magnum
+lts-cable -c R2D2_LF
 ```
 
-**Native (Windows / current development environment):**
+**Linux/macOS native:** install FreeCAD + ParaView from your package manager (`apt install freecad paraview`, `brew install --cask freecad paraview`); `tools/fetch_tools.ps1` is Windows-portable-bundles only.
 
-```powershell
-& "C:/Program Files/Python312/python.exe" -m pip install -e .
-$env:PYTHONIOENCODING = "utf-8"
-& "C:/Program Files/Python312/python.exe" scripts/main/main.py --list-cables
-```
+**Windows PowerShell:** `$env:ANSYS_LICENSE_SERVER = "1055@licenansys"` instead of `export`.
 
-`--list-cables` prints the available presets (`R2D2_LF`, `R2D2_HF`, `CD1`) --
-those *are* the sample inputs: each is a real Rutherford-cable spec you can run
-end-to-end with no further configuration.
+`--list-cables` prints the three sample presets (`R2D2_LF`, `R2D2_HF`, `CD1`) -- each is a real Rutherford-cable spec runnable end-to-end with no further configuration.
 
 ---
 
 ## Requirements
 
-### Software (host machine)
+### Software (host)
+
 | Component | Version | Source |
 |---|---|---|
-| Python | 3.12 | python.org / Microsoft Store / `apt`/`brew` |
-| **ANSYS** | 2025 R2 (v252) -- Mechanical APDL, LS-DYNA, Mechanical | Pulled as Docker images from `REGISTRY_PREFIX` (see below); only the **license server** needs to be reachable from the host. No host ANSYS install required. |
-| **Docker** | Engine 24+ / Desktop 4+ | docker.com |
-| FreeCAD | 1.0.2 (Windows) / apt-default (Linux) | Bundled in `tools/freecad/` via `tools/fetch_tools.ps1` (Windows), or `apt install freecad` (Linux) |
-| ParaView | 6.0.1 (Windows) / apt-default (Linux) | Bundled in `tools/paraview/` via `tools/fetch_tools.ps1` (Windows), or `apt install paraview` (Linux) |
+| Python | 3.12 | python.org · Microsoft Store · `apt`/`brew` |
+| Docker | Engine 24+ / Desktop 4+ | docker.com |
+| Ansys 2025 R2 (v252) license | network-reachable FlexLM | institutional |
+| FreeCAD | 1.0.2 (Windows) / apt-default (Linux) | `tools/fetch_tools.ps1` (Windows) · `apt install freecad` (Linux) · `brew install --cask freecad` (macOS) |
+| ParaView | 6.0.1 (Windows) / apt-default (Linux) | `tools/fetch_tools.ps1` (Windows) · `apt install paraview` (Linux) · `brew install --cask paraview` (macOS) |
 
-The supplied **`Dockerfile`** bundles Python 3.12 + FreeCAD + ParaView + the
-Python dependencies. The only things you provide are:
+**Ansys is not installed on the host.** The Mechanical mesher, LS-DYNA solver, and MAPDL cablestack/compbox all run inside the `mechanical:25.2` and `lsdyna:25.2` Docker images, which ship Ansys internally. The host only needs Docker, pull access to the image registry, and FlexLM reachability.
 
-1. **Docker** itself (the orchestrator inside this image talks to the host
-   Docker daemon via the mounted socket, and spawns sibling Mechanical /
-   LS-DYNA / MAPDL containers).
-2. A **reachable ANSYS license server** (env var `ANSYS_LICENSE_SERVER`).
-3. **Pull access** to your image registry for `mechanical:25.2` and
-   `lsdyna:25.2` -- the MAPDL container reuses `mechanical:25.2`; both ship
-   ANSYS inside the image, **no host install and no bind-mount of a host
-   ANSYS tree**.
+### Docker images
 
-Note: the apt versions of FreeCAD and ParaView in the Dockerfile (Ubuntu
-24.04's `freecad` / `paraview` packages) are not byte-identical to the Windows
-portable bundles (FreeCAD 1.0.2 / ParaView 6.0.1) fetched by
-`tools/fetch_tools.ps1`. If a pipeline script depends on a feature specific
-to the bundled version, verify the Linux path once.
+| Image | Used for | Compose file |
+|---|---|---|
+| `<prefix>/mechanical:25.2` | Mesher (Ansys Mechanical) + MAPDL (cablestack + compbox) | `scripts/lsdyna/docker/docker-compose.yaml` · `scripts/apdl/docker/docker-compose.yaml` |
+| `<prefix>/lsdyna:25.2` | LS-DYNA compaction solver | `scripts/lsdyna/docker/docker-compose.yaml` |
 
-### Python dependencies (managed by `pyproject.toml`)
-`ansys-mechanical-core`, `ansys-dyna-core==0.9.0`, `alphashape`, `matplotlib`,
-`networkx`, `numpy`, `pandas`, `python-pptx`, `scipy`, `shapely`.
+`<prefix>` is the `REGISTRY_PREFIX` env var. Default `gitea.psi.ch/vanden_j` (PSI); CERN users set `registry.cern.ch/chart-magnum`.
 
-Install everything in one go: `pip install -e .`
+### Python dependencies
 
-### Docker images used at runtime
-- **Mechanical mesher + MAPDL cablestack/compbox:** `<prefix>/mechanical:25.2` (Ansys 2025 R2 bundle; provides both Mechanical and MAPDL). See `scripts/lsdyna/docker/docker-compose.yaml` (mesher) and `scripts/apdl/docker/docker-compose.yaml` (MAPDL).
-- **LS-DYNA solver:** `<prefix>/lsdyna:25.2`. See `scripts/lsdyna/docker/docker-compose.yaml`.
-- **Registry:** `<prefix>` is set by the `REGISTRY_PREFIX` env var. Default `gitea.psi.ch/vanden_j` (PSI). CERN users set `REGISTRY_PREFIX=registry.cern.ch/chart-magnum`.
+Managed by `pyproject.toml`: `ansys-mechanical-core`, `ansys-dyna-core==0.9.0`, `alphashape`, `matplotlib`, `networkx`, `numpy`, `pandas`, `python-pptx`, `scipy`, `shapely`. Install with `pip install -e .` (add `[notebook]` for JupyterLab + ipywidgets).
 
 ---
 
 ## License servers
 
-The pipeline auto-detects which ANSYS license server is reachable from the
-machine it's running on. Built-in candidates:
+The pipeline auto-detects which Ansys FlexLM server is reachable on the network it's started from. Built-in candidates:
 
 | Institute | FlexLM string |
 |---|---|
-| CERN | `1055@licenansys` (active) -- previously `1055@lxlicen01.cern.ch` |
+| CERN | `1055@licenansys` |
 | ETH | `1801@lic-ansys-research.ethz.ch` |
 | PSI | `1055@winlic03.psi.ch` |
 
-**Set `ANSYS_LICENSE_SERVER` to skip probing and use a specific server:**
+(`1055@lxlicen01.cern.ch` is kept in the candidate list as a fallback for older CERN configurations.)
+
+**Override** by exporting `ANSYS_LICENSE_SERVER` to a verbatim FlexLM string (`host:port` or comma-list for failover). The pipeline propagates the value into the LS-DYNA and MAPDL container environments as both `ANSYSLI_SERVERS` and `ANSYSLMD_LICENSE_FILE`.
 
 ```bash
 # Linux / macOS
 export ANSYS_LICENSE_SERVER=1055@licenansys
-
-# Windows PowerShell
-$env:ANSYS_LICENSE_SERVER = "1055@licenansys"
-```
-
-The pipeline honours this env var verbatim and propagates it into the
-LS-DYNA, RVE, and MAPDL container environments (`ANSYSLI_SERVERS` and
-`ANSYSLMD_LICENSE_FILE` both get set to it).
-
-**Combine several servers** with `:` for FlexLM failover:
-
-```bash
+# Combine for failover:
 export ANSYS_LICENSE_SERVER="1055@licenansys:1801@lic-ansys-research.ethz.ch"
 ```
 
-**CERN-specific extras.** Besides `ANSYS_LICENSE_SERVER` itself, CERN
-machines typically also set:
+**CERN extras** -- alongside `ANSYS_LICENSE_SERVER` you may also need:
 
 ```bash
-export ANSYSLMD_LICENSE_FILE=1055@licenansys   # the pipeline already propagates this from ANSYS_LICENSE_SERVER into LS-DYNA / MAPDL containers, but exporting it explicitly is fine
-export ANSYS_LOCK=OFF                           # skip MAPDL's per-jobname file.lock check; handy when an aborted job leaves a stale .lock behind. The cablestack `jobslurm.sh` already does `rm -f *.lock`, so this is mostly relevant if you launch MAPDL by hand. See CLAUDE.md "Stale file.lock" gotcha.
-export AWP_ROOT222=/ansys_inc                   # ONLY needed if you have a NATIVE ANSYS install at /ansys_inc that you want some tooling to find. Not used by the Docker-image path (which ships ANSYS internally). Note: 222 means ANSYS 2022 R2; this codebase targets 2025 R2 (252) -- pick AWP_ROOT252 if that's what's installed.
+export ANSYS_LOCK=OFF       # ignore stale per-jobname *.lock files left by aborted MAPDL runs (the cablestack job script already does `rm -f *.lock`, so this matters only for hand-launched MAPDL)
+export AWP_ROOT222=/ansys_inc   # only if you have a native Ansys 2022 R2 install at /ansys_inc; not used by the Docker images (which ship Ansys internally)
 ```
 
-**If you're at a different institute** (not CERN / ETH / PSI), the no-server-
-reachable warning at the start of the run tells you exactly what to set. Ask
-your IT helpdesk for your site's ANSYS FlexLM host:port. The simplest
-permanent fix is to add the line above to your `.bashrc` / `.zshrc` / Windows
-user environment variables.
+**Other sites:** if the auto-probe finds nothing reachable, set `ANSYS_LICENSE_SERVER` yourself -- the "no license server reachable" log line tells you exactly what to put there.
 
 ---
 
 ## Configuration
 
-Edit [scripts/main/cable_parameters_user.json](scripts/main/cable_parameters_user.json)
-to pick a cable preset and tune the cablestack solve. Three sample cables
-ship in this file as ready-to-run sample inputs:
+Cable presets and cablestack settings live in [scripts/main/cable_parameters_user.json](scripts/main/cable_parameters_user.json). The three sample cables ship ready-to-run:
 
-| Preset | Configuration |
+| Preset | Notes |
 |---|---|
-| `R2D2_LF` | Low-field R2D2 cable |
+| `R2D2_LF` | Low-field R2D2 cable (default) |
 | `R2D2_HF` | High-field R2D2 cable |
 | `CD1` | CD1 cable |
 
-Each preset includes wire material (Nb3Sn / Cu bilinear plasticity), strand
-count, pitch, diameters, and cablestack solve settings -- pick one with the
-`active_cable` key or pass `-c <NAME>` on the CLI.
+Select a preset with `-c <NAME>` on the CLI, or by editing `active_cable`. Each preset includes wire material (Nb<sub>3</sub>Sn / Cu bilinear plasticity), strand count, pitch, diameters, and cablestack solve settings.
 
 Key fields (see the file for the full set with inline `_comment_*` docs):
 
 ```jsonc
 {
-  "active_cable": "CD1",
+  "active_cable": "R2D2_LF",
   "cablestack": {
     "impreg":   4,            // 1=epoxy RT, 2=wax RT, 3=epoxy LN2, 4=wax LN2
     "bc_type":  "cyclic",     // 'cyclic' or 'linear' (displacement_transverse only)
-
-    // Which cablestack stages MAPDL will run after the .inp templates are written.
-    // Each entry is a stage name; dependencies are auto-included.
-    // Available stages: displacement_transverse, displacement_radial,
-    //                   pressure_transverse,     pressure_radial
-    // Empty list = generate files only, do not launch MAPDL.
-    // --no-cablestack on the CLI overrides this to [].
+    "boundary_type": "constrained",   // or 'free' for unconfined Zwick BC
     "stages": [
       "displacement_transverse",
       "displacement_radial",
       "pressure_transverse",
       "pressure_radial"
     ],
-
-    "mesh_size_um":        50,    // reference impreg+insulation size at D_Strand=0.85mm (scales linearly)
-    "strand_mesh_size_um": 50,    // reference strand size at D_Strand=0.85mm (scales linearly)
-
+    "mesh_size_um":        50,    // impreg+insulation, ref at D_strand=0.85 mm
+    "strand_mesh_size_um": 50,    // strand areas,      ref at D_strand=0.85 mm
     "pressure": {                 // applied to BOTH pressure stages
       "gauge_length_mm": 15.0,
       "peak_force_N":    45000,
@@ -198,18 +158,13 @@ Key fields (see the file for the full set with inline `_comment_*` docs):
 
 ---
 
-## Running the pipeline
-
-The Python entry point is `scripts/main/main.py` (also exposed as the
-`lts-cable` console script when installed via `pip install -e .`).
+## CLI flags
 
 ```bash
-# Linux/macOS (after `pip install -e .`):
+# Native (any OS, after pip install -e .):
 lts-cable [OPTIONS]
-
-# Windows:
-& "C:/Program Files/Python312/python.exe" scripts/main/main.py [OPTIONS]
-
+# Equivalent direct call:
+python scripts/main/main.py [OPTIONS]
 # Containerised:
 docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
@@ -218,155 +173,95 @@ docker run --rm \
     lts-cable [OPTIONS]
 ```
 
-Key options:
-
 | Flag | Purpose |
 |------|---------|
-| `-c {R2D2_LF\|R2D2_HF\|CD1}` | Select cable preset (default `R2D2_LF`) |
-| `--cables <NAME> [NAME ...]` | Run multiple cables in parallel (one subprocess per cable) |
+| `-c {R2D2_LF\|R2D2_HF\|CD1}` | Cable preset (default `R2D2_LF`) |
+| `--cables <NAME> [NAME ...]` | Run multiple cables in parallel (one subprocess each) |
 | `-t <ms>` | LS-DYNA termination time (default `0.0001`) |
-| `--apdl-only` | Copy latest run -> new `*_apdl_rerun/` folder; re-run d3plot->APDL + cablestack |
+| `--apdl-only` | Copy latest run → new `*_apdl_rerun/` folder; re-run d3plot→APDL + cablestack |
 | `--quick-run` | Skip geometry + meshing; redo mesh-conversion + LS-DYNA |
 | `--no-cablestack` | Generate cablestack `.inp` files but **do not launch any MAPDL stages** |
-| `--hpc` | Run cablestack on an SSH-reachable SLURM HPC cluster (upload + sbatch + wait + fetch). Default target is ETH Euler; override via `HPC_HOST` / `HPC_USER` / `HPC_REMOTE_BASE` env vars. Requires SSH key access to the chosen cluster. |
-| `--debug-plots` | Emit per-pair conformal-mesh / outer-node SVGs (slow) |
-| `--compbox` | Run the compression box simulation (step 9) after cablestack, even if `compression_box.enabled` is false |
-| `--compbox-only` | Run only the compression box simulation on the latest run folder for the selected cable; add `--hpc` to solve on the cluster |
-| `--list-cables` | Print available presets and exit |
+| `--hpc` | Run cablestack on an SSH-reachable SLURM cluster (upload + sbatch + wait + fetch). Default target ETH Euler; override via `HPC_HOST` / `HPC_USER` / `HPC_REMOTE_BASE` |
+| `--debug-plots` | Per-pair conformal-mesh / outer-node SVGs (slow) |
+| `--compbox` | Run the compression-box simulation (step 9) after cablestack, even if `compression_box.enabled` is false |
+| `--compbox-only` | Run only the compression box on the latest run for the selected cable (add `--hpc` to solve on the cluster) |
+| `--list-cables` | Print presets and exit |
+| `--no-cache` | Force a fresh run from STEP geometry onward, bypassing the run cache |
 
-**Stage selection is JSON-only:** the `cablestack.stages` array controls
-which cablestack stages run. The CLI deliberately has no per-stage flag --
-to skip a stage, remove it from the array. To skip them all, use
-`--no-cablestack`.
+**Stage selection is JSON-only:** the `cablestack.stages` array controls which cablestack stages run. To skip a stage, remove it from the array. To skip them all, use `--no-cablestack`.
 
 ---
 
-## Pipeline at a glance
+## Pipeline stages
 
-1. **Parameter calculation** -- strand pitch, twist rate, geometry from the selected preset.
-2. **Metadata generation** -- timestamps, tool versions, workflow-step status.
-3. **STEP geometry** -- headless FreeCAD writes `<cable>.step`.
-4. **Meshing** -- Ansys Mechanical (Docker) sweep-hex meshes the STEP -> `mesh.k`.
-5. **Mesh conversion** -- `inputfile_generator` stitches templated `.k` blocks + parsed mesh into `processed_input.k`.
-6. **LS-DYNA solve** -- `docker compose up` runs the compaction; log is tailed for live `[<CABLE>] LS-DYNA: 45.2%` progress.
-7. **ParaView extraction** -- `pvpython` extracts deformed strand cross-sections from `d3plot` into per-stack CSVs.
-8. **APDL submodel build** -- `conformalRutherfordMesh.run(...)` produces the conformal mesh and APDL `.inp` fragments.
-9. **Cablestack copy/patch** -- templates copied into `apdl_runfolder/`, all geometry / usecase / pressure variables patched in, `loading_cycle.json` recorded.
-10. **Cablestack solve** -- runs every stage from `cablestack.stages` in dependency order (one MAPDL container per stage), with per-stage Python postprocessing on success.
+1. **Parameter calculation** — strand pitch, twist rate, geometry from the selected preset.
+2. **Metadata generation** — timestamps, tool versions, workflow-step status.
+3. **STEP geometry** — headless FreeCAD writes `<cable>.step`.
+4. **Meshing** — Ansys Mechanical (Docker) sweep-hex meshes the STEP into `LSDYNA/mesh.k`.
+5. **Mesh conversion** — `inputfile_generator` stitches templated `.k` blocks + parsed mesh into `processed_input.k`.
+6. **LS-DYNA solve** — `docker compose up` runs the compaction; log is tailed for live `[<CABLE>] LS-DYNA: 45.2%` progress.
+7. **ParaView extraction** — `pvpython` extracts deformed strand cross-sections from `d3plot` into per-stack CSVs.
+8. **APDL submodel build** — `conformalRutherfordMesh.run(...)` produces the conformal mesh and APDL `.inp` fragments.
+9. **Cablestack copy / patch** — templates copied into `apdl_runfolder/`, all geometry / usecase / pressure variables patched in, `loading_cycle.json` recorded.
+10. **Cablestack solve** — runs every stage from `cablestack.stages` in dependency order (one MAPDL container per stage), with per-stage Python postprocess on success.
+11. **Compression box** *(opt-in, see below)* — 3D parent magnetic box → field tables → one-turn submodel under the BOX9 schedule → strain + Ic analysis.
 
-The cablestack uses the **70 GPa Nb3Sn standard** for the strand modulus (stamped in `loading_cycle.json` + `metadata.json` under `nb3sn_modulus`). An RVE-based homogenisation sub-pipeline is in development; see `scripts/apdl/submodel/RVE/README.md`.
+The cablestack uses the **70 GPa Nb<sub>3</sub>Sn standard** for the strand modulus (stamped in `loading_cycle.json` + `metadata.json` under `nb3sn_modulus.source = "fallback"`). An RVE-based homogenisation sub-pipeline is in development; see `scripts/apdl/submodel/RVE/README.md`.
 
 ---
 
 ## Cablestack stage architecture
 
-The cablestack solve is a 2x2 matrix of independent MAPDL stages (plus a
-skeleton thermal-cooldown stage that's wired but not implemented):
+The cablestack solve is a 2×2 matrix of independent MAPDL stages (plus a skeleton thermal-cooldown stage that's wired but not implemented):
 
-| Stage name | BC type | Load axis | Driver `.inp` | Output prefix | Usecase suffix |
-|---|---|---|---|---|---|
-| `build`                   | geometry + mesh + contacts only (no SOLVE) | -- | [0-start.inp](scripts/apdl/submodel/cablestack/0-start.inp) -> SAVE `base.db` | *(none -- produces `base.db` only)* | *(empty)* |
-| `displacement_transverse` | UY ramp on top wall (fresh, undeformed) | Y (vertical) | [00-restart-transverse.inp](scripts/apdl/submodel/cablestack/00-restart-transverse.inp) (RESUMEs `base.db`) -> 5-BC.inp -> 7-PP | `fd_good_<cable>.txt` | *(empty)* |
-| `displacement_radial`     | UX ramp on left wall (fresh, undeformed) | X (radial)   | [00-restart-radial.inp](scripts/apdl/submodel/cablestack/00-restart-radial.inp) (RESUMEs `base.db`) -> 5-BC-displacement-radial -> 7-PP | `fd_good_<cable>_disp_radial.txt` | `_disp_radial` |
-| `pressure_transverse`     | SFL pressure on top wall (fresh, undeformed) | Y (vertical) | [00-restart-pressure.inp](scripts/apdl/submodel/cablestack/00-restart-pressure.inp) (RESUMEs `base.db`) -> 5-BC-pressure -> 8-PP-pressure | `fd_pressure_<cable>_pressure.txt` + `uy_top_...` | `_pressure` |
-| `pressure_radial`         | SFL pressure on left wall (fresh, undeformed) | X (radial)   | [00-restart-pressure-radial.inp](scripts/apdl/submodel/cablestack/00-restart-pressure-radial.inp) (RESUMEs `base.db`) -> 5-BC-radial -> 8-PP-radial | `fd_radial_<cable>_radial.txt` + `ux_left_...` | `_radial` |
-| `thermal_cooldown` *(SKELETON)* | TUNIF cooldown 293->4.2 K *(TODO)* | -- | [0-start-thermal.inp](scripts/apdl/submodel/cablestack/0-start-thermal.inp) -> 5-BC-thermal -> 8-PP-thermal *(all `/EXIT,NOSAVE` stubs)* | *(none)* | `_thermal` |
+| Stage name | BC type | Load axis | Driver `.inp` | Output prefix |
+|---|---|---|---|---|
+| `build` | geometry + mesh + contacts only (no SOLVE) | — | [0-start.inp](scripts/apdl/submodel/cablestack/0-start.inp) → SAVE `base.db` | *(none — produces `base.db`)* |
+| `displacement_transverse` | UY ramp on top wall | Y (vertical) | [00-restart-transverse.inp](scripts/apdl/submodel/cablestack/00-restart-transverse.inp) → 5-BC.inp → 7-PP | `fd_good_<cable>.txt` |
+| `displacement_radial` | UX ramp on left wall | X (radial) | [00-restart-radial.inp](scripts/apdl/submodel/cablestack/00-restart-radial.inp) → 5-BC-displacement-radial → 7-PP | `fd_good_<cable>_disp_radial.txt` |
+| `pressure_transverse` | SFL pressure on top wall | Y (vertical) | [00-restart-pressure.inp](scripts/apdl/submodel/cablestack/00-restart-pressure.inp) → 5-BC-pressure → 8-PP-pressure | `fd_pressure_<cable>_pressure.txt` + `uy_top_...` |
+| `pressure_radial` | SFL pressure on left wall | X (radial) | [00-restart-pressure-radial.inp](scripts/apdl/submodel/cablestack/00-restart-pressure-radial.inp) → 5-BC-radial → 8-PP-radial | `fd_radial_<cable>_radial.txt` + `ux_left_...` |
 
-> **Strict start/restart split.** `0-start.inp` is the only **build** deck
-> (geometry, mesh, contacts, then `SAVE,base,db` -- no BC, no SOLVE). The four
-> load stages are pure restart decks that `RESUME,base,db` and apply their own
-> BCs from an undeformed configuration. Adding a new load case = adding one
-> `00-restart-<name>.inp`, one `5-BC-<name>.inp`, and one entry in
-> `CABLESTACK_STAGES`.
+> **Strict start / restart split.** `0-start.inp` is the only **build** deck (geometry, mesh, contacts, then `SAVE,base,db` — no BC, no SOLVE). The four load stages are pure restart decks that `RESUME,base,db` and apply their own BCs from an undeformed configuration. Adding a new load case = adding one `00-restart-<name>.inp`, one `5-BC-<name>.inp`, and one entry in `CABLESTACK_STAGES`.
 
-> **Free vs. constrained.** `cablestack.boundary_type` in the JSON config
-> picks the BC mode for all four load stages. `constrained` (default) pins
-> the sidewalls perpendicular to the load (cable inside a rigid die). `free`
-> drops those constraints and anchors via the loaded-against wall (full
-> `UX=UY=0`), so the cable can bulge under Poisson effect (unconfined Zwick
-> test). The patcher overwrites the canonical `5-BC-*.inp` files with their
-> `-free` siblings when needed. `bc_type='linear' + boundary_type='free'` is
-> not implemented (no `5-BC-linear-free.inp`).
+> **Free vs. constrained.** `cablestack.boundary_type` picks the BC mode for all four load stages. `constrained` (default) pins the sidewalls perpendicular to the load (cable inside a rigid die). `free` drops those constraints and anchors via the loaded-against wall so the cable can bulge under Poisson effect (unconfined Zwick test). The patcher overwrites the canonical `5-BC-*.inp` files with their `-free` siblings when needed. `bc_type='linear' + boundary_type='free'` is not implemented.
 
-> **`thermal_cooldown` is a skeleton:** the stage is registered in
-> `CABLESTACK_STAGES`, the template files exist, and
-> `postprocess_thermal_cooldown` is wired into the dispatcher -- but the
-> cooldown physics (CTE per material in `1-material_properties.inp`, `TUNIF`
-> load step, Nb3Sn epsilon_zz dump) is *not* implemented. The `.inp` stubs
-> `/EXIT,NOSAVE` immediately. Do not add this stage to `cablestack.stages`
-> in the JSON until the physics is filled in.
+**Architecture.** Two external-system boundaries are factored as Protocol + adapters:
 
-**Architecture (Clean-Architecture style adapters).** Two external-system
-boundaries are factored as ports + adapters:
-
-| Port (Protocol) | Adapters | Implementation file |
+| Port | Adapters | File |
 |---|---|---|
-| `CablestackSolver.run_stages(...)` | `LocalMAPDL` (per-stage `docker compose up`), `HPCMAPDL` (one sbatch for all stages on any SSH-reachable SLURM cluster; default ETH Euler; parses rc per-stage from `mapdl_run.log`) | [scripts/main/solver.py](scripts/main/solver.py) |
-| `LicenseDetector.detect()` | `NetworkProbeLicenseDetector` (probes CERN/ETH/PSI with 3s TCP timeout, respects `ANSYS_LICENSE_SERVER` env var), `StaticLicenseDetector` (fixed string for tests/CI) | [scripts/main/license_detector.py](scripts/main/license_detector.py) |
+| `CablestackSolver.run_stages(...)` | `LocalMAPDL` (per-stage `docker compose up`), `HPCMAPDL` (one sbatch for all stages on any SSH-reachable SLURM cluster; default ETH Euler) | [scripts/main/solver.py](scripts/main/solver.py) |
+| `LicenseDetector.detect()` | `NetworkProbeLicenseDetector` (3 s TCP probe; honours `ANSYS_LICENSE_SERVER`), `StaticLicenseDetector` (fixed string for tests/CI) | [scripts/main/license_detector.py](scripts/main/license_detector.py) |
 
-If you want to add a new site / cluster / solver, write an adapter that
-implements the relevant Protocol and inject it into the `WorkflowRunner`.
-You don't need to touch `main.py`.
+To add a new site / cluster / solver, write an adapter that implements the relevant Protocol and inject it into the `WorkflowRunner` -- no need to touch `main.py`.
 
-**Dependencies:** every restart stage depends on the `build` stage because
-it `RESUME`s from `base.db`. Missing dependencies are auto-included in the
-run order (see `resolve_cablestack_stage_order` in [scripts/main/main.py](scripts/main/main.py)).
-If a stage's required `.db` is missing on disk, it's skipped with a warning
-rather than launching a failing container.
+**One container per stage.** Docker projects are named `mapdl_<run_folder>_<stage_name>` (lowercase); per-stage logs at `apdl_runfolder/mapdl_<stage>.log`. Independent load stages run concurrently up to `cablestack.max_parallel_stages` (default 4 local; HPC runs sequence them in one job).
 
-**One container per stage:** Docker projects are named
-`mapdl_<run_folder>_<stage_name>` (lowercase). Per-stage logs go to
-`<apdl_runfolder>/mapdl_<stage>.log`.
+**Per-stage postprocess.** After each MAPDL container exits, [analyse_pressure.py](scripts/analysis/submodel/cablestack/analyse_pressure.py) dispatches to the matching `postprocess_<stage>` function:
 
-**Postprocessing fires per stage:** after each stage's MAPDL container exits,
-`run_cablestack_postprocess(dst_dir, stage_name=name)` dispatches to the
-matching function in [scripts/analysis/submodel/cablestack/analyse_pressure.py](scripts/analysis/submodel/cablestack/analyse_pressure.py):
+| Stage | Outputs (in `apdl_runfolder/plots/` + `pp/`) |
+|---|---|
+| `displacement_transverse` | `<usecase>_subplots.svg`, `<usecase>_stress_strain.svg/.txt` |
+| `displacement_radial` | same triple, with `<usecase> = <cable>_disp_radial` |
+| `pressure_transverse` | same triple, plus `loading_cycle.json` nominal-pressure schedule |
+| `pressure_radial` | same triple, with `<usecase> = <cable>_radial` |
 
-| Stage | Postprocess function | Outputs |
-|---|---|---|
-| `displacement_transverse` | `postprocess_displacement_transverse` | `<usecase>_subplots.svg`, `<usecase>_stress_strain.svg`, `<usecase>_stress_strain.txt` |
-| `displacement_radial`     | `postprocess_displacement_radial`     | same triple, with `<usecase> = <cable>_disp_radial` |
-| `pressure_transverse`     | `postprocess_pressure_transverse`     | same triple, plus uses `loading_cycle.json` nominal-pressure schedule |
-| `pressure_radial`         | `postprocess_pressure_radial`         | same triple, with `<usecase> = <cable>_radial` |
-
-All SVGs land in `<apdl_runfolder>/plots/` and the `.txt` exports sit next
-to the APDL dumps. The CLI form
-`python scripts/analysis/submodel/cablestack/analyse_pressure.py [run_folder]`
-runs every stage's postprocess against an existing folder.
+To re-run the postprocess on an existing folder without re-solving: `python scripts/analysis/submodel/cablestack/analyse_pressure.py [run_folder]`.
 
 ---
 
 ## Compression box simulation (step 9, opt-in)
 
-Couples the workflow's deformed-strand geometry to the measured BOX9
-load/current schedule: a 3D homogenized "compression box" magnetic model
-provides the field environment, which is interpolated onto the strand
-positions of every stack cross-section; a one-turn 2D submodel then resolves
-per-strand strains over the 28-step loading history, and the analysis chain
-correlates them against the measured Ic degradation.
+Couples the workflow's deformed-strand geometry to the measured BOX9 load/current schedule: a 3D homogenised "compression box" magnetic model provides the field environment, which is interpolated onto the strand positions of every stack cross-section; a one-turn 2D submodel then resolves per-strand strains over the loading history, and the analysis chain correlates them against the measured Ic degradation.
 
-Enable with `compression_box.enabled: true` in
-[scripts/main/cable_parameters_user.json](scripts/main/cable_parameters_user.json)
-(or force per-run with `--compbox`); run standalone on the latest completed
-run with `--compbox-only`. `compression_box.solver` picks the backend:
-`local` (Docker MAPDL, default) or `hpc` (SLURM on any SSH-reachable cluster; also forced by `--hpc`).
+Enable with `compression_box.enabled: true` in [scripts/main/cable_parameters_user.json](scripts/main/cable_parameters_user.json) (or force per-run with `--compbox`); run standalone on the latest completed run with `--compbox-only`. `compression_box.solver` picks the backend: `local` (Docker MAPDL, default) or `hpc` (SLURM on any SSH-reachable cluster; also forced by `--hpc`).
 
 Sub-steps (status in `<run>/APDL/compbox/compbox_summary.json`):
-`parent_mag` (box MAG solve -> `.rmg`) -> `vtu_export` -> `field_tables`
--> `submodel` (one case per stack cross-section -> `strains_out_*.out`)
--> `analysis` (strain/Ic CSVs + SVGs).
+`parent_mag` (box MAG solve → `.rmg`) → `vtu_export` → `field_tables` → `submodel` (one case per stack cross-section → `strains_out_*.out`) → `analysis` (strain/Ic CSVs + SVGs).
 
-**Starting a new campaign = dropping in a new measurement table.** The
-load/current schedule is generated at staging time from
-`compression_box.measurement_file` (a BOX9.txt-style table: peak pressure
-[MPa], Ic under load [A], Ic after unload [A or NaN] per row; row 1 is the
-baseline) and written identically into the box deck and the submodel BC deck,
-so the two can never drift. `compression_box.nsteps` optionally caps the
-schedule (even values keep load/unload pairs intact); the expanded schedule is
-audited in `<run>/APDL/compbox/loading_schedule.json`.
+**Starting a new campaign = dropping in a new measurement table.** The load/current schedule is generated at staging time from `compression_box.measurement_file` (a BOX9.txt-style table: peak pressure [MPa], Ic under load [A], Ic after unload [A or NaN] per row; row 1 is the baseline) and written identically into the box deck and the submodel BC deck, so the two can never drift. `compression_box.nsteps` optionally caps the schedule (even values keep load/unload pairs intact); the expanded schedule is audited in `<run>/APDL/compbox/loading_schedule.json`.
 
-Note: the submodel's Nb3Sn modulus is the fixed **70 GPa standard** (the value
-the box's homogenized-conductor amplification factor is calibrated against).
+The submodel's Nb<sub>3</sub>Sn modulus is the fixed **70 GPa standard** (the value the box's homogenised-conductor amplification factor is calibrated against).
 
 ---
 
@@ -374,93 +269,81 @@ the box's homogenized-conductor amplification factor is calibrated against).
 
 ```
 data/runs/<timestamp>_<cable>/
-|-- cable_parameters.json                     # Calculated parameters
-|-- metadata.json                             # Run metadata + workflow_steps status
-|-- <cable>.step                              # FreeCAD geometry
-|-- LSDYNA/
-|   |-- mesh.k                                # Ansys Mechanical output
-|   |-- processed_input.k                     # Final LS-DYNA deck
-|   |-- d3plot, ...                           # Solver output
-|   `-- lsdyna_container.log
-|-- stack/                                    # Per-stack deformed-strand CSVs (ParaView)
-`-- APDL/
-    |-- submodel/
-    |   `-- apdl_runfolder/
-    |       |-- 0-start.inp, 1-material_properties.inp, ...  # Patched cablestack deck
-    |       |-- loading_cycle.json            # Nominal load schedule + per-stage usecase map (schema v2)
-    |       |-- base.db, submodel_cable_<n>_<cable>.db, ...
-    |       |-- fd_good_<cable>.txt           # displacement_transverse output
-    |       |-- fd_good_<cable>_disp_radial.txt
-    |       |-- fd_pressure_<cable>_pressure.txt + uy_top_...
-    |       |-- fd_radial_<cable>_radial.txt   + ux_left_...
-    |       |-- <usecase>_stress_strain.txt   # Python postprocess export (one per stage)
-    |       |-- mapdl_<stage>.log             # one per stage launched
-    |       `-- plots/<usecase>_subplots.svg, <usecase>_stress_strain.svg
-    `-- compbox/                              # step 9 (opt-in) compression box simulation
-        |-- parent_runfolder/                 # box MAG deck + CompBox_MAG_*.rmg
-        |-- vtu/                              # per-loadstep enhanced VTUs (Bx/By/Bz/|B|)
-        |-- field_tables/                     # nb3sn_combined_data_case_<i>_<t>.inp
-        |-- submodel_runfolder/               # one-turn decks + geometry + strains_out_*.out
-        |-- results/                          # heatmaps/ + strain_analysis/ CSVs + SVGs
-        `-- compbox_summary.json              # per-substep status + Nb3Sn modulus audit
+├── cable_parameters.json                     # Calculated parameters
+├── metadata.json                             # Run metadata + workflow_steps status
+├── <cable>.step                              # FreeCAD geometry
+├── LSDYNA/
+│   ├── mesh.k                                # Ansys Mechanical output
+│   ├── processed_input.k                     # Final LS-DYNA deck
+│   ├── d3plot, ...                           # Solver output
+│   └── lsdyna_container.log
+├── stack/                                    # Per-stack deformed-strand CSVs (ParaView)
+└── APDL/
+    ├── submodel/
+    │   └── apdl_runfolder/
+    │       ├── 0-start.inp, 1-material_properties.inp, ...  # Patched cablestack deck
+    │       ├── loading_cycle.json            # Applied schedule + Nb3Sn modulus audit
+    │       ├── base.db, submodel_cable_<n>_<cable>.db, ...
+    │       ├── fd_good_<cable>.txt           # displacement_transverse output
+    │       ├── fd_good_<cable>_disp_radial.txt
+    │       ├── fd_pressure_<cable>_pressure.txt + uy_top_...
+    │       ├── fd_radial_<cable>_radial.txt   + ux_left_...
+    │       ├── pp/<usecase>_stress_strain.txt          # Python postprocess export
+    │       ├── mapdl_<stage>.log             # one per stage launched
+    │       └── plots/<usecase>_subplots.svg, <usecase>_stress_strain.svg
+    └── compbox/                              # step 9 (opt-in) compression box
+        ├── parent_runfolder/                 # box MAG deck + CompBox_MAG_*.rmg
+        ├── vtu/                              # per-loadstep enhanced VTUs (Bx/By/Bz/|B|)
+        ├── field_tables/                     # nb3sn_combined_data_case_<i>_<t>.inp
+        ├── submodel_runfolder/               # one-turn decks + strains_out_*.out
+        ├── results/                          # heatmaps/ + strain_analysis/ CSVs + SVGs
+        └── compbox_summary.json              # per-substep status + Nb3Sn modulus audit
 ```
 
-`workflow_steps` in `metadata.json` tracks `5_lsdyna_simulation`,
-`6_paraview_extraction`, `7_apdl_submodel`, `8_cablestack`, and
-`9_compression_box` when the opt-in compbox stage runs.
-`--apdl-only` uses these keys to find the latest qualifying run.
+`workflow_steps` in `metadata.json` tracks `5_lsdyna_simulation`, `6_paraview_extraction`, `7_apdl_submodel`, `8_cablestack`, and `9_compression_box` when the opt-in compbox stage runs. `--apdl-only` uses these keys to find the latest qualifying run.
+
+---
+
+## Notebook UI
+
+The same pipeline is wrapped in a JupyterLab widget UI under `notebooks/`:
+
+| Notebook | Purpose |
+|---|---|
+| `notebooks/setup.ipynb` | One-time: configure `REGISTRY_PREFIX`, verify license server, pull Docker images |
+| `notebooks/workflow_explorer.ipynb` | Interactive per-stage runner with live progress, run-folder picker, deformed-strand plots, stage tracker |
+
+Every notebook button calls a `WorkflowRunner` method directly — no logic is duplicated. Install with `pip install -e .[notebook]` for JupyterLab + ipywidgets.
 
 ---
 
 ## Troubleshooting
 
-**No ANSYS license server reachable**
-- Set `ANSYS_LICENSE_SERVER` to your institute's FlexLM string before re-running
-  (see [License servers](#license-servers) above).
+**No Ansys license server reachable**
+- Set `ANSYS_LICENSE_SERVER` to your institute's FlexLM string before re-running (see [License servers](#license-servers)).
 - Verify network connectivity / VPN to the server.
 
-**`Docker daemon not running` / Docker errors**
+**Docker daemon not running / Docker errors**
 - Ensure Docker Desktop (Windows / macOS) or `dockerd` (Linux) is running.
-- Verify `<prefix>/mechanical:25.2` is reachable, where `<prefix>` is `REGISTRY_PREFIX` (default `gitea.psi.ch/vanden_j`; CERN `registry.cern.ch/chart-magnum`).
-- Inside the Dockerfile environment, the orchestrator talks to the *host*
-  Docker daemon via the mounted socket (`-v /var/run/docker.sock:/var/run/docker.sock`).
-  On Windows, replace with `-v //var/run/docker.sock:/var/run/docker.sock`.
+- Verify `<prefix>/mechanical:25.2` is reachable, where `<prefix>` = `REGISTRY_PREFIX` (default `gitea.psi.ch/vanden_j`; CERN `registry.cern.ch/chart-magnum`).
+- Inside the Dockerfile orchestrator, sibling containers are spawned on the host daemon via the mounted socket (`-v /var/run/docker.sock:/var/run/docker.sock`). On Windows: `-v //var/run/docker.sock:/var/run/docker.sock`.
 
-**`pvpython not found`**
-- Install ParaView (`apt install paraview`, `brew install --cask paraview`,
-  or the Windows installer), **or** unzip a portable ParaView under
-  `tools/paraview/ParaView*/` so the bundled-lookup finds it, **or** set
-  `PVPYTHON_EXE` to point at the binary.
+**`pvpython` / FreeCAD executable not found**
+- Windows: re-run `pwsh tools/fetch_tools.ps1` and confirm it landed under `tools/paraview/` and `tools/freecad/`.
+- Linux / macOS: install via package manager (`apt install paraview freecad`, `brew install --cask paraview freecad`).
+- Override via `PVPYTHON_EXE` / `FREECAD_EXE` env vars to point at a non-standard install.
 
-**`FreeCAD executable not found`**
-- Install FreeCAD (`apt install freecad`, `brew install --cask freecad`,
-  or the Windows installer), **or** unzip a portable FreeCAD under
-  `tools/freecad/FreeCAD*/` so the bundled-lookup finds it, **or** set
-  `FREECAD_EXE` to point at the binary.
-
-**Cablestack stage skipped with "base.db not found"**
-- A restart stage tried to launch before the `build` stage wrote `base.db`.
-- Re-run with `build` included in `cablestack.stages` (it's auto-included
-  by `resolve_cablestack_stage_order`, so the most common cause is that
-  the build stage exited non-zero -- check `mapdl_build.log`).
+**Cablestack stage skipped with `base.db not found`**
+- A restart stage tried to launch before the `build` stage wrote `base.db`. Re-run with `build` included in `cablestack.stages` (it's auto-included by the dependency resolver, so the most common cause is `build` exited non-zero -- check `mapdl_build.log`).
 
 **`fd_good_*.txt` missing after a successful MAPDL run**
-- Open `mapdl_<stage>.log` in the apdl_runfolder -- look for the `7-PP.inp`
-  block; non-zero rc on a stage means the stress-strain dump was not written.
-- The postprocess function will print `fd_good_... not found; skipping.`
-  and return False; the pipeline does not abort.
+- Open `mapdl_<stage>.log` in `apdl_runfolder/` and search the `7-PP.inp` block; a non-zero rc on that block means the stress-strain dump wasn't written. The postprocess function prints `... not found; skipping.` and returns False; the pipeline does not abort.
 
-**Stale `file.lock` after an abnormal exit (HPC / MAPDL crash / scancel)**
-- `<jobname>.lock` and `file.lock` linger and block subsequent runs with
-  rc=100 within seconds. The HPC jobslurm.sh handles this with
-  `rm -f *.lock` at the top; for local re-runs, manually delete them in
-  `apdl_runfolder/` before relaunching.
+**Stale `file.lock` after an abnormal MAPDL exit (crash, scancel, OOM)**
+- `<jobname>.lock` and `file.lock` linger and block subsequent runs with rc=100 within seconds. The HPC `jobslurm.sh` handles this with `rm -f *.lock` at the top; for local re-runs, delete them manually in `apdl_runfolder/` before relaunching. `export ANSYS_LOCK=OFF` is a blanket alternative but masks legitimate "already running" cases.
 
 ---
 
-## Contact / contributing
+## Where to start when something looks wrong
 
-Run-by-run state lives under `data/runs/<run>/` -- start there when
-debugging. For questions about the pipeline architecture or adding a new
-solver / license / site adapter, see the **Ports + adapters** table in the
-cablestack section above.
+Run-by-run state lives under `data/runs/<run>/` — start there. The `metadata.json` `workflow_steps` dict tells you which step failed; the matching log file (`LSDYNA/lsdyna_container.log`, `APDL/submodel/apdl_runfolder/mapdl_<stage>.log`) has the detail.

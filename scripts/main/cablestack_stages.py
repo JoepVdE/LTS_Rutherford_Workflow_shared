@@ -143,7 +143,9 @@ def write_cablestack_jobslurm(dst_dir: Path, cable_label: str, n_strands: int,
         the job as failed.
       - Each stage writes `<stage>.success` on rc=0 so partial runs are
         machine-detectable, and stale MAPDL lock files are removed before the
-        job and after any failed stage (see the file.lock gotcha in CLAUDE.md).
+        job and after any failed stage. (Stale `file.lock` from an aborted MAPDL
+        run blocks every subsequent launch with rc=100; removing it pre-launch
+        is the only reliable workaround.)
     """
     db_file = "base.db"
     mail_user = os.environ.get("HPC_MAIL_USER", "joep@ethz.ch")

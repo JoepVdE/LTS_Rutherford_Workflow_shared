@@ -815,7 +815,7 @@ class RunConfig:
 def list_run_containers(run_folder: Path) -> Dict[str, List[str]]:
     """Return docker compose project names belonging to a run folder.
 
-    Naming conventions live in CLAUDE.md and main.py:
+    Naming conventions:
     * LS-DYNA: ``lsdyna_<run_folder_name>`` (lowercase)
     * Cablestack MAPDL: ``mapdl_<run_folder_name>_<stage_name>`` (lowercase)
     * Compbox MAPDL: ``mapdl_<run_folder_name>_compbox_<tag>``
