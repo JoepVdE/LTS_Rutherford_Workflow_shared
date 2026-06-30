@@ -38,12 +38,14 @@ class NetworkProbeLicenseDetector:
         # (FlexLM string,                              hostname,                       port)
         ("1801@lic-ansys-research.ethz.ch",            "lic-ansys-research.ethz.ch",   1801),
         ("1055@winlic03.psi.ch",                       "winlic03.psi.ch",              1055),
-        # CERN ANSYS license -- update the host:port to match your site's FlexLM server.
-        # Override via ANSYS_LICENSE_SERVER env var if your CERN account uses a
-        # different server (e.g. a department-specific one).
+        # CERN ANSYS license. `licenansys` is the current short hostname (resolves
+        # inside the CERN network); `lxlicen01.cern.ch` is the previous one and is
+        # kept as a fallback for older configurations. Override via the
+        # ANSYS_LICENSE_SERVER env var if your account uses a different server.
+        ("1055@licenansys",                            "licenansys",                   1055),
         ("1055@lxlicen01.cern.ch",                     "lxlicen01.cern.ch",            1055),
     )
-    FALLBACK = "1801@lic-ansys-research.ethz.ch:1055@winlic03.psi.ch:1055@lxlicen01.cern.ch"
+    FALLBACK = "1801@lic-ansys-research.ethz.ch:1055@winlic03.psi.ch:1055@licenansys:1055@lxlicen01.cern.ch"
     ENV_VAR = "ANSYS_LICENSE_SERVER"
 
     def __init__(self, candidates=None, timeout_s: float = 3.0):
@@ -77,7 +79,7 @@ class NetworkProbeLicenseDetector:
             "No ANSYS license server reachable.  Point the pipeline at your "
             "institute's server by setting the ANSYS_LICENSE_SERVER environment "
             "variable to its FlexLM string before re-running.  Examples:\n"
-            "  CERN (lxplus / cmf):  export ANSYS_LICENSE_SERVER=1055@lxlicen01.cern.ch\n"
+            "  CERN (lxplus / cmf):  export ANSYS_LICENSE_SERVER=1055@licenansys\n"
             "  ETH:                  export ANSYS_LICENSE_SERVER=1801@lic-ansys-research.ethz.ch\n"
             "  PSI:                  export ANSYS_LICENSE_SERVER=1055@winlic03.psi.ch\n"
             "Combine several servers with `:` (FlexLM tries each in order)."

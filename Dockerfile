@@ -26,13 +26,17 @@
 #
 # Required at runtime:
 #   - A reachable ANSYS license server (set ANSYS_LICENSE_SERVER, or be on a
-#     network where CERN/ETH/PSI auto-probe succeeds).
-#   - Docker on the host (the orchestrator spawns mesher/LS-DYNA/MAPDL
-#     containers via the mounted socket).
-#   - For the cablestack solve: the host ANSYS 2025 R2 image
-#     `<prefix>/mechanical:25.2` must be pullable. `<prefix>` comes from the
-#     REGISTRY_PREFIX env var (default `gitea.psi.ch/vanden_j`; CERN users set
-#     `registry.cern.ch/chart-magnum`).
+#     network where CERN/ETH/PSI auto-probe succeeds). CERN default is
+#     1055@licenansys.
+#   - Docker on the host (the orchestrator spawns sibling mesher / LS-DYNA /
+#     MAPDL containers via the mounted socket -- Docker-out-of-Docker).
+#   - Pull access to the two ANSYS images (each ship ANSYS internally; NO
+#     host ANSYS install is required and nothing is bind-mounted from a host
+#     ANSYS tree):
+#       - <prefix>/mechanical:25.2 (used for both meshing AND MAPDL cablestack/compbox)
+#       - <prefix>/lsdyna:25.2
+#     <prefix> comes from the REGISTRY_PREFIX env var (default
+#     `gitea.psi.ch/vanden_j`; CERN users set `registry.cern.ch/chart-magnum`).
 
 FROM ubuntu:24.04
 

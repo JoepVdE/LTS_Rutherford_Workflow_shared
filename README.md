@@ -32,7 +32,7 @@ docker build -t lts-cable .
 docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$PWD/data:/app/data" \
-    -e ANSYS_LICENSE_SERVER=1055@lxlicen01.cern.ch \
+    -e ANSYS_LICENSE_SERVER=1055@licenansys \
     lts-cable --list-cables
 ```
 
@@ -40,7 +40,7 @@ docker run --rm \
 
 ```bash
 pip install -e .
-export ANSYS_LICENSE_SERVER=1055@lxlicen01.cern.ch   # see "License servers" below
+export ANSYS_LICENSE_SERVER=1055@licenansys   # CERN; see "License servers" below for ETH/PSI
 lts-cable --list-cables
 ```
 
@@ -64,15 +64,28 @@ end-to-end with no further configuration.
 | Component | Version | Source |
 |---|---|---|
 | Python | 3.12 | python.org / Microsoft Store / `apt`/`brew` |
-| **ANSYS** | 2025 R2 (v252) -- Mechanical APDL, LS-DYNA, Mechanical | Host install + reachable license server |
+| **ANSYS** | 2025 R2 (v252) -- Mechanical APDL, LS-DYNA, Mechanical | Pulled as Docker images from `REGISTRY_PREFIX` (see below); only the **license server** needs to be reachable from the host. No host ANSYS install required. |
 | **Docker** | Engine 24+ / Desktop 4+ | docker.com |
-| FreeCAD | 1.0.2 | Bundled in `tools/freecad/` (Windows) or apt/brew `freecad` (Linux/macOS) |
-| ParaView | 6.0.1 | Bundled in `tools/paraview/` (Windows) or apt/brew `paraview` (Linux/macOS) |
+| FreeCAD | 1.0.2 (Windows) / apt-default (Linux) | Bundled in `tools/freecad/` via `tools/fetch_tools.ps1` (Windows), or `apt install freecad` (Linux) |
+| ParaView | 6.0.1 (Windows) / apt-default (Linux) | Bundled in `tools/paraview/` via `tools/fetch_tools.ps1` (Windows), or `apt install paraview` (Linux) |
 
 The supplied **`Dockerfile`** bundles Python 3.12 + FreeCAD + ParaView + the
-Python dependencies, so the only thing you provide is Docker itself, a host
-ANSYS license, and (when running cablestack stages) a host ANSYS installation
-the MAPDL container can mount.
+Python dependencies. The only things you provide are:
+
+1. **Docker** itself (the orchestrator inside this image talks to the host
+   Docker daemon via the mounted socket, and spawns sibling Mechanical /
+   LS-DYNA / MAPDL containers).
+2. A **reachable ANSYS license server** (env var `ANSYS_LICENSE_SERVER`).
+3. **Pull access** to your image registry for `mechanical:25.2` and
+   `lsdyna:25.2` -- the MAPDL container reuses `mechanical:25.2`; both ship
+   ANSYS inside the image, **no host install and no bind-mount of a host
+   ANSYS tree**.
+
+Note: the apt versions of FreeCAD and ParaView in the Dockerfile (Ubuntu
+24.04's `freecad` / `paraview` packages) are not byte-identical to the Windows
+portable bundles (FreeCAD 1.0.2 / ParaView 6.0.1) fetched by
+`tools/fetch_tools.ps1`. If a pipeline script depends on a feature specific
+to the bundled version, verify the Linux path once.
 
 ### Python dependencies (managed by `pyproject.toml`)
 `ansys-mechanical-core`, `ansys-dyna-core==0.9.0`, `alphashape`, `matplotlib`,
@@ -81,8 +94,8 @@ the MAPDL container can mount.
 Install everything in one go: `pip install -e .`
 
 ### Docker images used at runtime
-- **Meshing / MAPDL:** `<prefix>/mechanical:25.2` (Ansys 2025 R2).
-- **LS-DYNA:** `<prefix>/lsdyna:25.2` — see `scripts/lsdyna/docker/docker-compose.yaml`.
+- **Mechanical mesher + MAPDL cablestack/compbox:** `<prefix>/mechanical:25.2` (Ansys 2025 R2 bundle; provides both Mechanical and MAPDL). See `scripts/lsdyna/docker/docker-compose.yaml` (mesher) and `scripts/apdl/docker/docker-compose.yaml` (MAPDL).
+- **LS-DYNA solver:** `<prefix>/lsdyna:25.2`. See `scripts/lsdyna/docker/docker-compose.yaml`.
 - **Registry:** `<prefix>` is set by the `REGISTRY_PREFIX` env var. Default `gitea.psi.ch/vanden_j` (PSI). CERN users set `REGISTRY_PREFIX=registry.cern.ch/chart-magnum`.
 
 ---
@@ -94,7 +107,7 @@ machine it's running on. Built-in candidates:
 
 | Institute | FlexLM string |
 |---|---|
-| CERN | `1055@lxlicen01.cern.ch` |
+| CERN | `1055@licenansys` (active) -- previously `1055@lxlicen01.cern.ch` |
 | ETH | `1801@lic-ansys-research.ethz.ch` |
 | PSI | `1055@winlic03.psi.ch` |
 
@@ -102,10 +115,10 @@ machine it's running on. Built-in candidates:
 
 ```bash
 # Linux / macOS
-export ANSYS_LICENSE_SERVER=1055@lxlicen01.cern.ch
+export ANSYS_LICENSE_SERVER=1055@licenansys
 
 # Windows PowerShell
-$env:ANSYS_LICENSE_SERVER = "1055@lxlicen01.cern.ch"
+$env:ANSYS_LICENSE_SERVER = "1055@licenansys"
 ```
 
 The pipeline honours this env var verbatim and propagates it into the
@@ -115,7 +128,16 @@ LS-DYNA, RVE, and MAPDL container environments (`ANSYSLI_SERVERS` and
 **Combine several servers** with `:` for FlexLM failover:
 
 ```bash
-export ANSYS_LICENSE_SERVER="1055@lxlicen01.cern.ch:1801@lic-ansys-research.ethz.ch"
+export ANSYS_LICENSE_SERVER="1055@licenansys:1801@lic-ansys-research.ethz.ch"
+```
+
+**CERN-specific extras.** Besides `ANSYS_LICENSE_SERVER` itself, CERN
+machines typically also set:
+
+```bash
+export ANSYSLMD_LICENSE_FILE=1055@licenansys   # the pipeline already propagates this from ANSYS_LICENSE_SERVER into LS-DYNA / MAPDL containers, but exporting it explicitly is fine
+export ANSYS_LOCK=OFF                           # skip MAPDL's per-jobname file.lock check; handy when an aborted job leaves a stale .lock behind. The cablestack `jobslurm.sh` already does `rm -f *.lock`, so this is mostly relevant if you launch MAPDL by hand. See CLAUDE.md "Stale file.lock" gotcha.
+export AWP_ROOT222=/ansys_inc                   # ONLY needed if you have a NATIVE ANSYS install at /ansys_inc that you want some tooling to find. Not used by the Docker-image path (which ships ANSYS internally). Note: 222 means ANSYS 2022 R2; this codebase targets 2025 R2 (252) -- pick AWP_ROOT252 if that's what's installed.
 ```
 
 **If you're at a different institute** (not CERN / ETH / PSI), the no-server-
