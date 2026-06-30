@@ -1017,12 +1017,6 @@ class WorkflowRunner:
         boundary_type = cablestack_cfg.get("boundary_type", "constrained")
         if boundary_type not in ("constrained", "free"):
             raise ValueError(f"cablestack.boundary_type must be 'constrained' or 'free', got {boundary_type!r}")
-        # formulation: 1 = generalized plane strain + mixed u-P (default),
-        # 0 = plane stress (Zwick uniaxial test BC). Patched into 0-start.inp;
-        # the *IF blocks in 2-geo.inp and every 5-BC-*.inp key off it.
-        formulation = int(cablestack_cfg.get("formulation", 1))
-        if formulation not in (0, 1):
-            raise ValueError(f"cablestack.formulation must be 0 (plane stress) or 1 (GPS), got {formulation!r}")
         x_cab_margin_mm = cablestack_cfg.get("x_cab_margin_mm", 0.5)
         # Mesh sizes scale linearly with wire diameter: the JSON value is the reference
         # at D_Strand = 0.85 mm, and the applied size is value * (D_Strand / 0.85).
@@ -1107,14 +1101,12 @@ class WorkflowRunner:
             text = _re.sub(r'^x_cab\s*=\s*\S+', f'x_cab = {x_cab:.6e}', text, flags=_re.MULTILINE)
             text = _re.sub(r'^y_cab\s*=\s*\S+', f'y_cab = {y_cab:.6e}', text, flags=_re.MULTILINE)
             text = _re.sub(r"^usecase\s*=\s*'[^']*'", f"usecase = '{cable_label}'", text, flags=_re.MULTILINE)
-            text = _re.sub(r'^formulation\s*=\s*\S+', f'formulation = {formulation}', text, flags=_re.MULTILINE)
             start_file.write_text(text)
             logger.info(f"Updated 0-start.inp: n_strands={n_strands}, n_stacks={n_stacks}, "
-                         f"x_cab={x_cab:.6e}, y_cab={y_cab:.6e}, usecase='{cable_label}', "
-                         f"formulation={formulation} ({'GPS' if formulation == 1 else 'plane stress'})")
+                         f"x_cab={x_cab:.6e}, y_cab={y_cab:.6e}, usecase='{cable_label}'")
 
         # --- patch 00-restart-transverse.inp (displacement_transverse stage) ---
-        # RESUME from base.db restores n_strands, n_stacks, x_cab, y_cab, formulation.
+        # RESUME from base.db restores n_strands, n_stacks, x_cab, y_cab.
         # Only the usecase needs patching for per-cable jobname / output naming.
         restart_trans_file = dst_dir / "00-restart-transverse.inp"
         if restart_trans_file.exists():
@@ -1260,7 +1252,6 @@ class WorkflowRunner:
                 "source": nb3sn_e_source,
                 "rve": nb3sn_rve_exy,
             },
-            "formulation": formulation,
             "n_steps": n_pres_steps,
             "steps": [
                 {

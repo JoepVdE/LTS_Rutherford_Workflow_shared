@@ -2,9 +2,7 @@
 ! 5-BC-thermal.inp  --  SKELETON, not yet implemented
 ! ============================================================
 ! Future content: cooldown load step from 293 K (TREF in 0-start.inp)
-! to 4.2 K, with CTE-driven contraction developing axial pre-strain
-! on Nb3Sn via the generalized plane strain DOF (GSBDATA defaults
-! already give zero net axial force).
+! to 4.2 K, with CTE-driven contraction developing pre-strain on Nb3Sn.
 !
 ! Sketch of what should go here:
 !
@@ -15,8 +13,6 @@
 !   !   left/right: UX=0
 !   !   top       : free (or UY=0 if the cable is z-locked by fixtures)
 !   ! ... copy the nset_* definitions from 5-BC-cyclic.inp ...
-!
-!   GSBDATA                       ! free axial Poisson contraction
 !
 !   /solu
 !   nropt,unsymmetric

@@ -2,42 +2,16 @@
 btol,1e-6
 
 ET,1,PLANE183
-! Element formulation chosen via `formulation` parameter set in 0-start.inp:
-!   1 = generalized plane strain + mixed u-P (default, physically correct for long cable)
-!   0 = plane stress (KEYOPT(3)=0, no u-P) -- matches Zwick uniaxial-compression test BC
-*IF,formulation,EQ,1,THEN
-    keyopt,1,3,5  ! generalized plane strain: uniform eps_zz + 2 bending DOFs (Nb3Sn axial strain for Ic)
-    keyopt,1,6,1  ! mixed u-P: separate hydrostatic-pressure DOF, avoids volumetric locking under J2 plasticity
-    ! ---- Generalized plane strain reference geometry ----
-    ! MUST be issued before any AMESH (mesh happens in 3-mesh.inp).
-    ! GSGDATA, LFIBER, XREF, YREF, ROTX0, ROTY0
-    GSGDATA, 1.0, 0, (n_stacks-1)*y_cab, 0, 0
-*ELSE
-    keyopt,1,3,0  ! plane stress -- sigma_zz = 0 locally, each material free to Poisson-contract in z
-    ! NOTE: mixed u-P (KEYOPT(6)=1) is NOT valid with plane stress; left at default 0
-    ! NOTE: GSGDATA is NOT issued in plane stress (no out-of-plane fiber reference needed)
-*ENDIF
-! PLANE182 2-D 4-Node Structural Solid 4 nodes 2-D space DOF: UX, UY
+! Plane stress (KEYOPT(3)=0): sigma_zz = 0 locally; each material is free to
+! Poisson-contract in z independently. Matches a Zwick uniaxial-compression
+! test BC where the sample is free at both axial ends.
+keyopt,1,3,0
 
-! KEYOPT(1)
-! Element technology:
-! 0 -- Full integration with method
-! 1 -- Uniform reduced integration with hourglass control
-! 2 -- Enhanced strain formulation
-! 3 -- Simplified enhanced strain formulation
-
-! KEYOPT(3)
-! Element behavior:
+! KEYOPT(3) reference -- this deck uses 0:
 ! 0 -- Plane stress
 ! 1 -- Axisymmetric
 ! 2 -- Plane strain (Z strain = 0.0)
 ! 3 -- Plane stress with thickness input
-! 5 -- Generalized plane strain
-
-! KEYOPT(6)
-! Element formulation:
-! 0 -- Use pure displacement formulation (default)
-! 1 -- Use mixed u-P formulation (not valid with plane stress)
 
 
 

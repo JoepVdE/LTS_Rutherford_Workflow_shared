@@ -49,7 +49,7 @@ D, nset_top, Uy, 0
 
 allsel
 
-! Solver settings + outres policy + GSBDATA (shared across all BC decks)
+! Solver settings + outres policy (shared across all BC decks)
 /inp,5-BC-solver-settings,inp
 
 ! Cyclic strain ramp (same percent values as 5-BC-cyclic.inp, scaled

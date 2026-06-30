@@ -22,10 +22,6 @@
 !     ('elem_id, x, y, eps_zz [-]')
 !     ! ... loop via NXTH, *GET centroid via CENT,X/Y, eps_zz via ETABLE ...
 !   *cfclose
-!
-!   ! Also useful (GPS only): the uniform fiber-length change at the
-!   ! reference point -- this IS the mean eps_zz across the cross-section.
-!   GSLIST,RESULTS              ! prints fiber length change to .out
 ! ============================================================
 
 /COM, ============================================================

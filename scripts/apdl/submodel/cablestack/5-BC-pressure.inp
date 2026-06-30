@@ -50,7 +50,7 @@ D, nset_bot, Ux, 0
 
 allsel
 
-! Solver settings + outres policy + GSBDATA (shared across all BC decks)
+! Solver settings + outres policy (shared across all BC decks)
 /inp,5-BC-solver-settings,inp
 
 ! presArray values are absolute pressures [Pa], patched from cable_parameters_user.json [cablestack.pressure]

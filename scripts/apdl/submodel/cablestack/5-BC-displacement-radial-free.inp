@@ -39,7 +39,7 @@ D, nset_right, Uy, 0
 
 allsel
 
-! Solver settings + outres policy + GSBDATA (shared across all BC decks)
+! Solver settings + outres policy (shared across all BC decks)
 /inp,5-BC-solver-settings,inp
 
 n_timesteps = 11

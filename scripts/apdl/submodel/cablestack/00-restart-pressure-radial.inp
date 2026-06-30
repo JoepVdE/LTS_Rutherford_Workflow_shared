@@ -10,7 +10,7 @@ FINISH
 RESUME,base,db
 
 ! RESUME restored every parameter from 0-start.inp (n_strands, n_stacks,
-! x_cab, y_cab, side_support, one_area_impreg, formulation).
+! x_cab, y_cab, side_support, one_area_impreg).
 ! Only the usecase needs to differ for this stage.
 usecase = 'R2D2_LF_radial'
 

@@ -67,10 +67,9 @@ if str(_SCRIPTS_MAIN) not in sys.path:
 from cablestack_stages import STAGE_USECASE_SUFFIX as _STAGE_USECASE_SUFFIX
 
 
-# ── Run metadata detection (formulation + BC variant per stage) ──────────────
+# ── Run metadata detection (BC variant per stage) ────────────────────────────
 # Reads the deck files left in the apdl_runfolder so plot titles / console
-# headers / text-export headers all surface "PS vs GPS" and "which 5-BC was
-# applied". Without this you cannot tell two sibling runs apart from the SVGs.
+# headers / text-export headers all surface which 5-BC variant was applied.
 
 _STAGE_DECK_CANDIDATES = {
     # New (00-restart-*) and old (0-start-* / 0-start.inp) deck naming.
@@ -80,31 +79,6 @@ _STAGE_DECK_CANDIDATES = {
     "pressure_radial":         ["00-restart-pressure-radial.inp", "0-start-pressure-radial.inp"],
     "thermal_cooldown":        ["00-restart-thermal.inp", "0-start-thermal.inp"],
 }
-
-_FORM_SHORT = {
-    "plane stress": "PS",
-    "generalized plane strain": "GPS",
-    "unknown": "?",
-}
-
-
-def _detect_formulation(apdl_runfolder):
-    """Read `formulation = 0|1` from 0-start.inp. Pre-toggle decks default to GPS."""
-    inp = os.path.join(apdl_runfolder, "0-start.inp")
-    if not os.path.isfile(inp):
-        return "unknown"
-    try:
-        with open(inp) as fh:
-            for line in fh:
-                s = line.strip()
-                if s.startswith("!"):
-                    continue
-                m = re.match(r"^\s*formulation\s*=\s*([01])\b", s)
-                if m:
-                    return "plane stress" if m.group(1) == "0" else "generalized plane strain"
-    except OSError:
-        pass
-    return "generalized plane strain"
 
 
 def _detect_stage_bc(apdl_runfolder, stage):
@@ -128,8 +102,8 @@ def _detect_stage_bc(apdl_runfolder, stage):
 
 
 def _stage_tag(apdl_runfolder, stage):
-    """Compact label like 'PS | BC=cyclic' for plot titles + console headers."""
-    return f"{_FORM_SHORT[_detect_formulation(apdl_runfolder)]} | BC={_detect_stage_bc(apdl_runfolder, stage)}"
+    """Compact label like 'BC=cyclic' for plot titles + console headers."""
+    return f"BC={_detect_stage_bc(apdl_runfolder, stage)}"
 
 
 # ── Output-file resolution ────────────────────────────────────────────────────

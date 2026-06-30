@@ -18,12 +18,6 @@ keyopt,1,3,0 !0 plain stress, 1 axisymmetric, 2 plain strain, 3 plain stress wit
 ! 1 -- Axisymmetric
 ! 2 -- Plane strain (Z strain = 0.0)
 ! 3 -- Plane stress with thickness input
-! 5 -- Generalized plane strain
-
-! KEYOPT(6)
-! Element formulation:
-! 0 -- Use pure displacement formulation (default)
-! 1 -- Use mixed u-P formulation (not valid with plane stress)
 
 
 

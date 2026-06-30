@@ -6,8 +6,6 @@
         "etan_MPa": 5000
     },
     "cablestack": {
-        "_comment_formulation": "Element formulation for the cablestack solve: 1 = generalized plane strain + mixed u-P (default, magnet operating physics), 0 = plane stress (matches unconfined Zwick test BC). Patched into 0-start.inp at copy time.",
-        "formulation": 1,
         "_comment_max_parallel": "Max MAPDL containers run concurrently for independent load stages (local Docker runs only; each container holds one license seat). 1 = fully sequential.",
         "max_parallel_stages": 4,
         "_comment_impreg": "Impregnation material: 1=epoxy RT, 2=wax RT, 3=epoxy LN2, 4=wax LN2",

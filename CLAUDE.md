@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repository Does
 
-End-to-end automated pipeline for Nb3Sn LTS Rutherford cable simulation. Python orchestrates: cable-parameter calculation → FreeCAD STEP geometry → Ansys Mechanical solid meshing (ansys-mechanical-core) → LS-DYNA solve in Docker → ParaView d3plot extraction → APDL submodel generation (conformal mesh on deformed strands) → 4-stage APDL cablestack 2D **generalized-plane-strain** solve (displacement / pressure × transverse / radial). The GPS DOFs let Nb3Sn axial strain develop naturally from transverse loading (Poisson coupling) — feeds Ic prediction.
+End-to-end automated pipeline for Nb3Sn LTS Rutherford cable simulation. Python orchestrates: cable-parameter calculation → FreeCAD STEP geometry → Ansys Mechanical solid meshing (ansys-mechanical-core) → LS-DYNA solve in Docker → ParaView d3plot extraction → APDL submodel generation (conformal mesh on deformed strands) → 4-stage APDL cablestack 2D **plane-stress** solve (displacement / pressure × transverse / radial). Plane-stress matches the unconfined Zwick uniaxial-compression test BC the model is validated against.
 
 Single entry point: [scripts/main/main.py](scripts/main/main.py).
 
@@ -63,9 +63,8 @@ LS-DYNA license auto-detected: ETH `1801@lic-ansys-research.ethz.ch`, PSI `1055@
 | [scripts/analysis/submodel/compbox/](scripts/analysis/submodel/compbox) | `convert_rmg_to_vtu.py` (MAG-only `.rmg`→VTU), `create_magnetic_heatmaps.py` (field tables), `complete_analysis.py` (strain/Ic correlation), `ic_calculator.py` + `nb3sn_law.py` |
 | [scripts/main/license_detector.py](scripts/main/license_detector.py) | `LicenseDetector` port + `NetworkProbeLicenseDetector` (TCP-probes ETH/PSI/CERN candidates); override with `ANSYS_LICENSE_SERVER` env var |
 | [scripts/main/cache.py](scripts/main/cache.py) | Content-addressed run cache (`lsdyna` + `cablestack` levels); index at `data/cache/index.json` |
-| [scripts/main/build_plane_stress_run.py](scripts/main/build_plane_stress_run.py) | Clones a GPS `apdl_runfolder/` → `apdl_runfolder_ps/` sibling, patches `formulation = 0`, writes a non-fatal `jobslurm.sh`. CLI: `python build_plane_stress_run.py [CABLE ...]` — auto-picks each cable's most recent run folder |
 | [scripts/main/calc_cable_params_sim.py](scripts/main/calc_cable_params_sim.py) | Computes pitch/twist/velocity geometry from user JSON |
-| [scripts/main/cable_parameters_user.json](scripts/main/cable_parameters_user.json) | Cable presets (`R2D2_LF`, `R2D2_HF`, `CD1`), wire material, `cablestack.{impreg, bc_type, boundary_type, formulation, stages, max_parallel_stages, mesh_size_um, strand_mesh_size_um, pressure}` |
+| [scripts/main/cable_parameters_user.json](scripts/main/cable_parameters_user.json) | Cable presets (`R2D2_LF`, `R2D2_HF`, `CD1`), wire material, `cablestack.{impreg, bc_type, boundary_type, stages, max_parallel_stages, mesh_size_um, strand_mesh_size_um, pressure}` |
 | [scripts/setup_step/generate_step.py](scripts/setup_step/generate_step.py) | Drives FreeCAD headless macro to write `.step` cable geometry |
 | [scripts/lsdyna/script/](scripts/lsdyna/script) | Ansys Mechanical meshing (`mesh_to_lsdyna.py`); `primemesh.py` and `lsdyna_setup.py` are legacy/unused |
 | [scripts/meshconverter/](scripts/meshconverter) | Templated `.k` blocks + `inputfile_generator.py` building `processed_input.k` |
@@ -76,8 +75,7 @@ LS-DYNA license auto-detected: ETH `1801@lic-ansys-research.ethz.ch`, PSI `1055@
 | [scripts/analysis/submodel/cablestack/analyse_pressure.py](scripts/analysis/submodel/cablestack/analyse_pressure.py) | Per-stage cablestack postprocessing (4 `postprocess_*` functions + `analyse`) |
 | [scripts/analysis/submodel/cablestack/analysis_utils.py](scripts/analysis/submodel/cablestack/analysis_utils.py) | Shared helpers for the analysis scripts: apdl_runfolder resolution, latest-run discovery, cable-label extraction, float-table / stress-strain-txt parsers. Import target for analyse_pressure, plot_fd_good and the compare scripts |
 | [scripts/analysis/submodel/cablestack/plot_fd_good.py](scripts/analysis/submodel/cablestack/plot_fd_good.py) | Standalone fd_good plotter (CLI use; older sibling of analyse_pressure) |
-| [scripts/analysis/submodel/cablestack/](scripts/analysis/submodel/cablestack) | Ad-hoc comparison/diagnostic plotters: `compare_cables.py`, `compare_gps_vs_planestrain.py`, `diagnostic_envelope_slope.py`, `presentation_plots.py`, `probe_step_boundary.py`, etc. — standalone CLI scripts, not part of the pipeline |
-| [scripts/apdl/test/gps_minimal/](scripts/apdl/test/gps_minimal) | Minimal standalone GPS validation deck (`gps_minimal.inp`) — confirms `KEYOPT(3,5)` + `GSGDATA`/`GSBDATA` + mixed u-P compatibility |
+| [scripts/analysis/submodel/cablestack/](scripts/analysis/submodel/cablestack) | Ad-hoc comparison/diagnostic plotters: `compare_cables.py`, `presentation_plots.py`, `probe_step_boundary.py`, etc. — standalone CLI scripts, not part of the pipeline |
 | [scripts/docs/](scripts/docs) | Presentation/diagram generators (`slide_*.py`, `diagram_*.py`, `render_icons.py`) — not part of the pipeline |
 | [Dockerfile](Dockerfile) / [pyproject.toml](pyproject.toml) | Containerized orchestrator (Docker-out-of-Docker) + Python package metadata / dependency manifest |
 | [data/runs/](data/runs) | Output: one folder per run, named `YYYYMMDD_HHMMSS_<CABLE>[_apdl_rerun[_N]]` |
@@ -106,14 +104,8 @@ LS-DYNA license auto-detected: ETH `1801@lic-ansys-research.ethz.ch`, PSI `1055@
 - `cablestack.bc_type`: `'cyclic'` or `'linear'` → selects which `5-BC-*.inp` is copied as `5-BC.inp` (used only by `displacement_transverse`)
 - `cablestack.stages`: ordered list of stage names to run (auto-includes dependencies). Default = all four. Empty list = generate `.inp` files only. `--no-cablestack` overrides to `[]`
 - `cablestack.max_parallel_stages`: max concurrent MAPDL containers for independent load stages on local Docker runs (default 4; set 1 for fully sequential, e.g. when license seats are scarce). HPC runs are unaffected (one SLURM job sequences the stages)
-- `cablestack.formulation`: `1` = GPS + mixed u-P (default), `0` = plane stress. Patched into `0-start.inp` by `copy_cablestack_files` — see the element formulation toggle below
 - `cablestack.mesh_size_um` / `strand_mesh_size_um`: reference element sizes at `D_Strand = 0.85 mm` → `s_ae` / `s_ae_str`. Applied size = `value * (D_Strand / 0.85)` µm — the JSON value scales linearly with wire diameter. Default reference is 50 µm when the key is omitted
 - `cablestack.pressure`: `gauge_length_mm`, `peak_force_N`, `min_force_N`, `ramp_pressures_MPa` — drives the **same** pressure-cycle block into both `5-BC-pressure.inp` and `5-BC-radial.inp`
-- **Element formulation toggle** — `cablestack.formulation` in the JSON, patched into the `formulation` parameter of `0-start.inp` at copy time:
-  - `formulation = 1` (default) — generalized plane strain + mixed u-P (`KEYOPT(1,3,5)` + `KEYOPT(1,6,1)` + `GSGDATA` + `GSBDATA` in every BC). Physically correct for a long magnet cable; lets ε_zz develop on Nb3Sn for Ic prediction. Required for radial stage convergence on heterogeneous near-incompressible composite.
-  - `formulation = 0` — plane stress (`KEYOPT(1,3,0)`, no u-P, no GSGDATA/GSBDATA). Matches Zwick uniaxial-compression test BC where the sample is free at both axial ends. Radial stage may not converge; use the non-fatal `run_stage_continue` jobslurm pattern (see `scripts/main/build_plane_stress_run.py`). For composite-cable models the in-plane response under plane stress is 2–3× softer than under GPS-with-F=0 because each material can independently Poisson-contract in z, instead of being forced to share one uniform ε_zz.
-  - `2-geo.inp` wraps the KEYOPT/GSGDATA block in `*IF formulation EQ 1 THEN … *ELSE keyopt,1,3,0 *ENDIF`. The `GSBDATA` call (same `*IF`) lives once in the shared `5-BC-solver-settings.inp` include.
-  - To build a plane-stress sibling of an existing GPS run folder, use `python scripts/main/build_plane_stress_run.py` — clones `apdl_runfolder/` → `apdl_runfolder_ps/` (in a `<run>_ps` sibling), overwrites formulation-sensitive templates, patches `formulation = 0`, and writes a non-fatal `jobslurm.sh` (each stage runs even if a prior one fails to converge).
 
 ## Cablestack Stage Architecture
 
@@ -254,14 +246,13 @@ Key invariants:
 - **`btol`** default is 1e-5 m, which exceeds the minimum keypoint distance (~4.5 µm) on deformed strands. [2-geo.inp](scripts/apdl/submodel/cablestack/2-geo.inp) sets `btol,1e-6` at the top before all `ASBA` calls — do not remove this.
 - **No global `NUMMRG`** in the cablestack deck; only the auto-generated per-interface `stack_interface_nummrg.inp`. A blanket `NUMMRG,NODE` would merge coincident contact-zone nodes from different strands and break contact pairs.
 - **Stale `file.lock` after an abnormal MAPDL exit blocks every subsequent run with rc=100.** When a SLURM job is `scancel`led, or MAPDL crashes/OOMs, the per-jobname `<jobname>.lock` (and the default `file.lock`) is left behind. Any re-launch — including a restart deck that uses a different `/filname` — will hit `*** ERROR *** Another ANSYS job with the same job name (file) is already running ... Do you wish to override this lock and continue (y or n)?` and immediately Abort(100). The `[y/n]` prompt never gets answered in batch. Fix: `rm -f *.lock` (or specifically `file.lock` and `<jobname>.lock`) at the top of any restart slurm script, before module load. Setting `export ANSYS_LOCK=OFF` works too but masks legitimate "already running" cases — prefer explicit `rm`. **Symptom:** every stage in a restart job returns rc=100 within seconds and pp/ stays empty. The generated `jobslurm.sh` (see `cablestack_stages.write_cablestack_jobslurm`) already does `rm -f *.lock` at job start and after any failed stage — keep that behaviour when editing the generator.
-- **Generalized plane strain uses `GSGDATA` + `GSBDATA`, NOT `SECTYPE,,GENS`.** `GENS` in `SECTYPE` is "preintegrated general shell section" (a completely different feature) and silently makes `amesh` produce zero elements when combined with `KEYOPT(3)=5`. The real GPS workflow is: `KEYOPT(1,3,5)` → `GSGDATA, LFIBER, XREF, YREF, ROTX0, ROTY0` (coordinates, not node IDs) **before** any `amesh` → `GSBDATA, LabZ, VALUEZ, LabX, VALUEX, LabY, VALUEY` (defaults `F=0, MX=0, MY=0` give free axial / no bending) inside the BC deck. MAPDL auto-creates 2 internal DOF nodes — do not create control nodes yourself. Read results via `GSLIST,RESULTS` (fiber length change = ε_zz × L_fiber). Confirmed compatible with `KEYOPT(6,1)` (mixed u-P) via `scripts/apdl/test/gps_minimal/`.
 
 ### When you must change APDL
 
 - **Sanity-check after every edit**: a 30-second `docker compose up` to the first `SOLVE` is cheaper than a 6-hour failed run. Tail the `mapdl_<stage>.log` for `*** ERROR ***` and any line starting with `***` you don't recognise.
 - **Preserve sentinel blocks**: `! <<<PRESSURE_CYCLE_BLOCK_START>>>` / `! <<<PRESSURE_CYCLE_BLOCK_END>>>` in `5-BC-pressure.inp` and `5-BC-radial.inp` are patched at runtime by `copy_cablestack_files` — do not delete the comment markers and do not put load-step code inside them by hand.
 - **Stay aligned with the four-stage architecture**: if you add a new BC or PP file, register the stage (incl. `usecase_suffix`) in `CABLESTACK_STAGES` in `cablestack_stages.py` — analyse_pressure.py picks the suffix up automatically — and write a `postprocess_<name>` function plus a dispatch entry in `run_cablestack_postprocess`. Do not bolt a new run mode onto an existing stage's `.inp` — it will break the postprocess dispatcher's filename assumptions.
-- **Solver settings live in one place**: `/solu` options (`nropt`, `neqit`, `nlgeom`, `AUTOTS`, `DELTIM`, `CUTCONTROL`), the OUTRES policy and the `GSBDATA` call are in [5-BC-solver-settings.inp](scripts/apdl/submodel/cablestack/5-BC-solver-settings.inp), `/INPUT`-included by every `5-BC-*` deck. Tune there, not in the individual decks. The default OUTRES is **selective** (`nsol`+`rsol` every substep, `esol` only at load-step ends — all the PP decks need); set `full_output = 1` in that file to restore `outres,all,all` for field-plot debugging (~10x larger `.rst`).
+- **Solver settings live in one place**: `/solu` options (`nropt`, `neqit`, `nlgeom`, `AUTOTS`, `DELTIM`, `CUTCONTROL`) and the OUTRES policy are in [5-BC-solver-settings.inp](scripts/apdl/submodel/cablestack/5-BC-solver-settings.inp), `/INPUT`-included by every `5-BC-*` deck. Tune there, not in the individual decks. The default OUTRES is **selective** (`nsol`+`rsol` every substep, `esol` only at load-step ends — all the PP decks need); set `full_output = 1` in that file to restore `outres,all,all` for field-plot debugging (~10x larger `.rst`).
 
 ## d3plottoapdl_package — Critical Invariants
 
@@ -294,17 +285,7 @@ Key invariants for `align_nodes`:
 
 ### Element Formulation (PLANE183, single `ET`)
 
-All material areas share `ET,1,PLANE183` defined at the top of `2-geo.inp`. Active KEYOPTs:
-- `KEYOPT(1,3,5)` — **generalized plane strain.** Cross-section sees a single uniform out-of-plane strain ε_zz plus two bending DOFs, all carried by 2 auto-allocated internal nodes. Picks up the long-cable z-invariance physically and exposes Nb3Sn ε_zz for Ic prediction.
-- `KEYOPT(1,6,1)` — **mixed u-P formulation.** Separate hydrostatic-pressure DOF per element. Required to avoid volumetric locking under copper J2 plasticity (Voce, near-incompressible flow). Confirmed compatible with GPS.
-
-Set up immediately after the KEYOPTs (still in `2-geo.inp`, before any `amesh`):
-```
-GSGDATA, 1.0, 0, (n_stacks-1)*y_cab, 0, 0
-```
-LFIBER=1 m means `GSLIST,RESULTS` reports fiber length change numerically equal to ε_zz. Reference point sits at the cable centroid (X=0 by symmetry, Y at the geometric centre of the n_stacks vertical run).
-
-Every BC deck reaches bare `GSBDATA` (no args) via the shared `5-BC-solver-settings.inp` include before its `*do` solve loop — defaults `F=0, MX=0, MY=0` give zero net axial force + no bending = "free Poisson contraction in z" boundary condition matching an unloaded gauge section. To apply Lorentz axial tension later, swap that to `GSBDATA, F, <force_N>, MX, 0, MY, 0`. To prescribe ε_zz directly, use `GSBDATA, LFIBER, <eps_zz>, ROTX, 0, ROTY, 0`.
+All material areas share `ET,1,PLANE183` defined at the top of `2-geo.inp` with `KEYOPT(1,3,0)` — **plane stress.** sigma_zz = 0 locally; each material is free to Poisson-contract in z independently. This matches an unconfined Zwick uniaxial-compression test BC (sample free at both axial ends) and is the only formulation in this distribution.
 
 ### Per-Stage BC / Restart Notes
 
@@ -318,7 +299,7 @@ Every BC deck reaches bare `GSBDATA` (no args) via the shared `5-BC-solver-setti
 
 **`7-PP.inp`** — shared between both displacement stages. Writes the 6-column `fd_good_<usecase>.txt` (Set, Time, UY, FY_total, UX, FX_total) and the `area_summary.txt` material-area breakdown.
 
-**`loading_cycle.json`** (schema_version 2) — written by `copy_cablestack_files`. Contains a `stages` block ({input_file, usecase, depends_on, post_tag} per stage), a per-stage `outputs` map, the `steps` array (nominal pressure schedule used by both pressure stages), the active `formulation`, and an `nb3sn_modulus` audit block (`value_Pa`, `source: 'fallback'`). The same `nb3sn_modulus` block is stamped into the run's `metadata.json`; the fallback is 70 GPa. The v1 `usecases.{pressure, lateral}` short names were replaced by `usecases.{pressure, radial}` plus a richer `stages` block.
+**`loading_cycle.json`** (schema_version 2) — written by `copy_cablestack_files`. Contains a `stages` block ({input_file, usecase, depends_on, post_tag} per stage), a per-stage `outputs` map, the `steps` array (nominal pressure schedule used by both pressure stages), and an `nb3sn_modulus` audit block (`value_Pa`, `source: 'fallback'`). The same `nb3sn_modulus` block is stamped into the run's `metadata.json`; the fallback is 70 GPa. The v1 `usecases.{pressure, lateral}` short names were replaced by `usecases.{pressure, radial}` plus a richer `stages` block.
 
 ## Conventions
 

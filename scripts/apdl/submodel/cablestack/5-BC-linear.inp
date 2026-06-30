@@ -82,7 +82,7 @@ allsel
 ! CNCHECK,AUTO
 ! CNCHECK,DMP !- Split contact pairs in the beginning of the solution (SOLVE).
 !!! Load
-! Solver settings + outres policy + GSBDATA (shared across all BC decks)
+! Solver settings + outres policy (shared across all BC decks)
 /inp,5-BC-solver-settings,inp
 
 y_strain = 5!%

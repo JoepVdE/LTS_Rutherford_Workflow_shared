@@ -1,8 +1,8 @@
 """Shared helpers for the cablestack analysis scripts in this directory.
 
 Canonical home for logic that was previously copy-pasted across
-analyse_pressure.py, plot_fd_good.py, compare_cables.py,
-compare_gps_vs_planestrain.py and the ad-hoc diagnostic plotters:
+analyse_pressure.py, plot_fd_good.py, compare_cables.py, and the
+ad-hoc diagnostic plotters:
 
   * locating an apdl_runfolder from a run-folder path,
   * finding the latest run folder under data/runs/,

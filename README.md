@@ -9,17 +9,14 @@ One Python entry point chains:
 4. **LS-DYNA** (Docker) compaction solve.
 5. **ParaView** (`pvpython`) extraction of deformed strand cross-sections.
 6. **APDL submodel** -- conformal mesh fitted to deformed strand outlines.
-7. **Cablestack solve in MAPDL** -- 2D generalized-plane-strain, four
-   independently selectable stages (displacement / pressure x transverse / radial).
+7. **Cablestack solve in MAPDL** -- 2D plane-stress (PLANE183 with
+   `KEYOPT(3)=0`), four independently selectable stages (displacement /
+   pressure x transverse / radial). Matches an unconfined Zwick-test BC.
 8. **Per-stage postprocess** -> stress-strain SVGs + tabular dumps.
 9. **Compression box simulation** *(opt-in)* -- 3D parent magnetic box solve ->
    field tables interpolated onto the deformed strand positions -> one-turn 2D
    submodel under the measured BOX9 load/current schedule -> strain + Ic
    degradation analysis.
-
-PLANE183 + `KEYOPT(3)=5` (generalized plane strain) + `KEYOPT(6)=1` (mixed u-P)
-means the Nb3Sn axial strain develops naturally from Poisson coupling under
-transverse load -- directly feedable into an Ic prediction.
 
 ---
 
@@ -290,14 +287,6 @@ skeleton thermal-cooldown stage that's wired but not implemented):
 > test). The patcher overwrites the canonical `5-BC-*.inp` files with their
 > `-free` siblings when needed. `bc_type='linear' + boundary_type='free'` is
 > not implemented (no `5-BC-linear-free.inp`).
-
-> **Note on the GPS upgrade:** all stages now run PLANE183 with
-> `KEYOPT(3)=5` (generalized plane strain) + `KEYOPT(6)=1` (mixed u-P).
-> Setup is one `GSGDATA` call in [2-geo.inp](scripts/apdl/submodel/cablestack/2-geo.inp) before meshing,
-> and one bare `GSBDATA` call (defaults: free axial, no bending) in each BC
-> deck. Results from prior plane-stress runs are **not directly comparable**
-> -- the new formulation is stiffer transversely (no z-escape) but reports
-> physically correct Nb3Sn epsilon_zz from Poisson coupling.
 
 > **`thermal_cooldown` is a skeleton:** the stage is registered in
 > `CABLESTACK_STAGES`, the template files exist, and

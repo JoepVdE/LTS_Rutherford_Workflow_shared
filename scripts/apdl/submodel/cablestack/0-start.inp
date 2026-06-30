@@ -11,11 +11,6 @@ n_stacks = 10
 side_support = 0 !1
 one_area_impreg = 0 !
 
-! formulation: 1 = generalized plane strain + mixed u-P (default, magnet operating physics).
-!              0 = plane stress (KEYOPT(3)=0, no u-P, no GSGDATA/GSBDATA) -- matches Zwick test.
-! Patched at runtime by main.py copy_cablestack_files from cable_parameters_user.json.
-formulation = 1
-
 usecase = 'R2D2_LF_restart'
 
 
