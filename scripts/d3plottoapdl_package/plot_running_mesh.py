@@ -7,9 +7,7 @@ strand using StrandMesh_Hexa (connectivity-only — the deformed node positions
 come from the pkl). Overlays the impregnation polygons too.
 
 Usage:
-  PYTHONIOENCODING=utf-8 \
-    "C:/Program Files/Python312/python.exe" -X utf8 \
-    scripts/d3plottoapdl_package/plot_running_mesh.py <run_folder>
+  python scripts/d3plottoapdl_package/plot_running_mesh.py <run_folder>
 
 Output: <run>/plots/_diag_full_fe_mesh.svg
 """
@@ -28,7 +26,7 @@ sys.path.insert(0, HERE)
 from strandMeshGenerator import StrandMesh_Hexa
 
 
-# TEST_A wire-derived inner / outer hex circumradii (matches what the workflow
+# Default wire-derived inner / outer hex circumradii (matches what the workflow
 # uses; the clamp inside StrandMesh_Hexa kicks in for D < 2*R_outer/0.9 = 0.66)
 R_IN_MM_DEFAULT = 0.1125
 R_OUT_MM_DEFAULT = 0.2964

@@ -189,16 +189,15 @@ class WorkflowRunner:
     @staticmethod
     def _warn_geometry_stability(cable_name: str, cable: dict) -> None:
         """Pre-flight: log a warning when the cable geometry matches a
-        failure pattern observed in the 2026-06 test matrix.
+        known failure pattern (small strands, very tight compaction).
 
         Thresholds (empirical, conservative — false-positive cost is one log
         line; false-negative cost is wasted LS-DYNA time + a build crash):
 
-          - D_Strand < 0.65 mm     -> APDL ASBA Boolean fails (TEST_A: 0.5 mm)
+          - D_Strand < 0.65 mm     -> APDL ASBA Boolean fails
           - cable_height / (2*D)   -> Y compaction; < 0.85 risks mesh degeneracy
-                                      (TEST_B_HEAVY segfault at 0.82)
           - cable_width / W_ruther -> X compaction; < 0.70 risks tight keystone
-                                      Boolean failure (TEST_E_HEAVY at 0.65)
+                                      Boolean failure
 
         Two flags simultaneously -> strong warning.
         """
@@ -231,14 +230,14 @@ class WorkflowRunner:
         if h_ratio < 0.85:
             warns.append(
                 f"cable_height/(2*D_Strand)={h_ratio:.2f} < 0.85: very tight "
-                f"Y compaction. TEST_B_HEAVY (0.82) seg-faulted in MAPDL "
-                f"meshing; suspected mesh degeneracy."
+                f"Y compaction. Below this ratio MAPDL meshing has been "
+                f"observed to seg-fault on mesh degeneracy."
             )
         if w_ratio < 0.70:
             warns.append(
                 f"cable_width/W_rutherford={w_ratio:.2f} < 0.70: narrow "
-                f"keystone (high X compaction). TEST_E_HEAVY (0.65) hit "
-                f"ASBA Boolean failure."
+                f"keystone (high X compaction). Below this ratio ASBA "
+                f"Boolean failures have been observed."
             )
 
         if not warns:
@@ -246,15 +245,12 @@ class WorkflowRunner:
 
         prefix = "STABILITY WARNING (strong)" if len(warns) >= 2 else "STABILITY WARNING"
         logger.warning(
-            f"[{cable_name}] {prefix}: geometry matches a failure pattern from "
-            f"the 2026-06 test matrix. Workflow will still run, but expect a "
-            f"crash in MAPDL build (or earlier). Reasons:"
+            f"[{cable_name}] {prefix}: geometry matches a known-fragile "
+            f"pattern. Workflow will still run, but expect a crash in MAPDL "
+            f"build (or earlier). Reasons:"
         )
         for w_msg in warns:
             logger.warning(f"  - {w_msg}")
-        logger.warning(
-            "  See data/runs/_TEST_MATRIX_REPORT_2026-06-25.md for full context."
-        )
 
     def setup_cable_config(self, selected_cable: str) -> str:
         """Update cable configuration and return cable name"""
@@ -271,7 +267,6 @@ class WorkflowRunner:
 
         # Pre-flight: warn on geometries empirically known to crash the APDL
         # build stage so the user notices before LS-DYNA spends ~30 min.
-        # See data/runs/_TEST_MATRIX_REPORT_2026-06-25.md for the source data.
         self._warn_geometry_stability(selected_cable, cable_config['cables'][selected_cable])
 
         cable_config['active_cable'] = selected_cable

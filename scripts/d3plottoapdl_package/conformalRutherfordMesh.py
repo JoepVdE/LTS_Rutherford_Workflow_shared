@@ -1564,48 +1564,42 @@ def plot_all_stacks_overview(all_stacks_mappers, all_insulation_polygons, filena
 # geometry is extreme:
 #   (1) CCW order can break — a node is moved past an angular neighbour, so
 #       the outer-ring polygon self-crosses. Triggers APDL "Poorly defined
-#       area. Check for crossed lines." on the strand-area boolean.
-#       Observed: TEST_A_thinmany_NOM, stack 5 (surface 653 boolean failure).
+#       area. Check for crossed lines." on the strand-area boolean. Seen on
+#       thin-strand, many-strand cables (D <= 0.5 mm) at outer stacks.
 #   (2) Two nodes from ADJACENT strands' outer rings can land < BTOL apart but
 #       not coincident — the boolean fails with min KPT distance just above
-#       BTOL. Observed: TEST_E_narrowkeyst_HEAVY (1.18 µm pair).
+#       BTOL. Seen on narrow-keystone cables under heavy X compaction (~1 um
+#       pair).
 #   (3) Two nodes on the SAME strand's outer ring can land < BTOL apart (a
 #       near-zero-area cell), MAPDL's quad mesher then segfaults during
-#       `amesh`. Observed: TEST_B_medstd_HEAVY (Segmentation Violation).
+#       `amesh`. Seen on very tight Y-compaction cables (< 2 um pair).
 #
 # All three fixes below are GATED by their respective failure conditions and
-# are no-ops on cables that don't trigger them. Verified by running through
-# TEST_A_LIGHT after deploying: zero corrections applied, fd_good output
-# byte-identical to the pre-fix run. Working cables (SMACC_LF/HF, CD1, SMACC_HF,
-# TEST_B_LIGHT/NOM, TEST_C×3, TEST_D×3, TEST_E_LIGHT/NOM) likewise see zero
-# triggers because their outer-ring geometry is well within the thresholds.
+# are no-ops on cables that don't trigger them. Working cables (SMACC_LF,
+# SMACC_HF, CD1) see zero triggers because their outer-ring geometry is well
+# within the thresholds.
 #
 # Conservative thresholds chosen to be well above any legitimate pair on
-# working cables (smallest observed inter-strand pair on TEST_C: ~22 µm;
-# smallest intra-strand pair on TEST_C: ~26 µm) and to catch the observed
-# failure cases (TEST_E_HEAVY 1.18 µm; TEST_B_HEAVY < 2 µm).
+# working cables (typical inter-/intra-strand pair >~ 20 um) and to catch
+# the observed failure cases (~1 um / < 2 um).
 # --------------------------------------------------------------------------- #
 
 # NOTE: MeshMapping.mapped_nodes are stored in MILLIMETRES, so all distance
 # thresholds below are expressed in mm. Comments note the µm equivalent.
-_DEDUP_INTRA_THRESH_MM = 2.0e-3   # 2 µm — intra-strand outer-ring (TEST_B_HEAVY mode)
-_DEDUP_INTER_THRESH_MM = 6.0e-3   # 6 µm — inter-strand outer-ring (TEST_E_HEAVY mode).
+_DEDUP_INTRA_THRESH_MM = 2.0e-3   # 2 µm — intra-strand outer-ring (tight Y-compaction mode)
+_DEDUP_INTER_THRESH_MM = 6.0e-3   # 6 µm — inter-strand outer-ring (narrow-keystone mode).
                                   # Empirically tuned: at 3 µm a 3-strand cluster
                                   # cascade leaves residuals; at 10 µm aggressive
                                   # merging creates degenerate cells that segfault
-                                  # MAPDL's mesher; 6 µm gives the best balance
-                                  # (gets TEST_E_HEAVY through stacks 1–3, fails
-                                  # at stack 4 with min KPT 6.3 µm in a
-                                  # degenerate area MAPDL can't subtract).
-                                  # Working cables (TEST_A_LIGHT min 15.6 µm,
-                                  # TEST_B_NOM ~22 µm, TEST_C_LIGHT ~22 µm) all
-                                  # untouched at this threshold.
+                                  # MAPDL's mesher; 6 µm gives the best balance.
+                                  # Working cables (typical outer-ring pair >~ 20
+                                  # um) are untouched at this threshold.
 _DEDUP_SKIP_THRESH_MM  = 1.0e-6   # 1 nm — below: already coincident; merging is no-op
 _CCW_EPSILON_RAD       = 1.0e-3   # ~0.06 deg tolerance for floating-point
 
 
 def _fix_outer_ring_ccw_violations(saved_mappers):
-    """Origin fix for TEST_A_NOM "Poorly defined area. Check for crossed lines."
+    """Origin fix for the "Poorly defined area. Check for crossed lines."
 
     Each strand's outer ring is a closed polygon ordered CCW by construction
     (StrandMesh_Hexa numbers nodes CCW around the strand). The contact-zone
@@ -1655,7 +1649,7 @@ def _fix_outer_ring_ccw_violations(saved_mappers):
 
 
 def _dedup_close_outer_ring_nodes(saved_mappers):
-    """Origin fix for TEST_E_HEAVY (inter-strand) and TEST_B_HEAVY (intra-strand).
+    """Origin fix for near-coincident outer-ring nodes (inter- and intra-strand).
 
     INTER-strand: after the contact snap, some pairs from adjacent strands'
     outer rings end up within (1 nm, 3 µm) of each other instead of exactly
@@ -1677,8 +1671,8 @@ def _dedup_close_outer_ring_nodes(saved_mappers):
     n_intra = 0
     n_inter = 0
 
-    # Cluster-merge pass: when 3+ nodes form a tight cluster (TEST_E_HEAVY:
-    # 3 strands collide at one contact-zone midpoint), a single pair-by-pair
+    # Cluster-merge pass: when 3+ nodes form a tight cluster (e.g. 3 strands
+    # colliding at one contact-zone midpoint on a narrow-keystone cable), a single pair-by-pair
     # merge leaves residual sub-µm distances that still trip the boolean.
     # Repeat the merge sweep until no more pairs are below threshold (cap at
     # 6 passes, more than enough for any contact-zone cluster size we have
@@ -1937,10 +1931,11 @@ def run(stack_dir, n_stacks, n_parts, output_dir=None, stack_height=None, debug_
 
         # ----- Origin fixes for contact-snap degeneracies (see helpers above).
         # Both are gated by failure conditions: working cables see zero
-        # corrections and the saved_mappers stay byte-identical.  Failing
-        # cables (TEST_A_NOM crossed lines, TEST_E_HEAVY 1.2 µm pair,
-        # TEST_B_HEAVY < 2 µm pair causing SegV) get their degeneracies
-        # repaired before the impregnation and strand keypoint writers run.
+        # corrections and the saved_mappers stay byte-identical.  Fragile
+        # geometries (crossed lines from thin many-strand layouts,
+        # ~1 um adjacent-strand pairs, < 2 um intra-strand pairs) get their
+        # degeneracies repaired before the impregnation and strand keypoint
+        # writers run.
         _fix_outer_ring_ccw_violations(saved_mappers)
         _dedup_close_outer_ring_nodes(saved_mappers)
 
