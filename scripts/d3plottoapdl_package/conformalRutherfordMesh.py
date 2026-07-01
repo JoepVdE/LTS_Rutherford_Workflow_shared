@@ -1576,7 +1576,7 @@ def plot_all_stacks_overview(all_stacks_mappers, all_insulation_polygons, filena
 # All three fixes below are GATED by their respective failure conditions and
 # are no-ops on cables that don't trigger them. Verified by running through
 # TEST_A_LIGHT after deploying: zero corrections applied, fd_good output
-# byte-identical to the pre-fix run. Working cables (R2D2_LF/HF, CD1, SMACC_HF,
+# byte-identical to the pre-fix run. Working cables (SMACC_LF/HF, CD1, SMACC_HF,
 # TEST_B_LIGHT/NOM, TEST_C×3, TEST_D×3, TEST_E_LIGHT/NOM) likewise see zero
 # triggers because their outer-ring geometry is well within the thresholds.
 #

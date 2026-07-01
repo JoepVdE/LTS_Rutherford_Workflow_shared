@@ -34,17 +34,17 @@ MAX_DIM = 1200  # px; thumbnails for diagrams.Custom (slide-size readable)
 # (target filename, source under REPO/)  --  edit here to swap source artifacts.
 SOURCES = [
     ("rve.png",
-     r"data\runs\_hex_overlay_check\hex_overlay_R2D2_LF.png"),
+     r"data\runs\_hex_overlay_check\hex_overlay_SMACC_LF.png"),
     ("paraview.png",
-     r"data\runs\20260504_204511_R2D2_LF\APDL\submodel\apdl_runfolder\plots\outer_polygon_and_box_5.png"),
+     r"data\runs\20260504_204511_SMACC_LF\APDL\submodel\apdl_runfolder\plots\outer_polygon_and_box_5.png"),
     ("conformal.png",
-     r"data\runs\20260504_232855_R2D2_HF_apdl_rerun_5\APDL\submodel\apdl_runfolder\plots\conformal_mesh\conformal_mesh_5_6_1.svg"),
+     r"data\runs\20260504_232855_SMACC_HF_apdl_rerun_5\APDL\submodel\apdl_runfolder\plots\conformal_mesh\conformal_mesh_5_6_1.svg"),
     ("outer_nodes.png",
-     r"data\runs\20260504_190849_R2D2_HF_apdl_rerun_2\APDL\submodel\apdl_runfolder\plots\align_debug\stack2_pair_14_15_indice_special_outer.svg"),
+     r"data\runs\20260504_190849_SMACC_HF_apdl_rerun_2\APDL\submodel\apdl_runfolder\plots\align_debug\stack2_pair_14_15_indice_special_outer.svg"),
     ("align_mesh.png",
-     r"data\runs\20260504_190849_R2D2_HF_apdl_rerun_2\APDL\submodel\apdl_runfolder\plots\align_debug\stack2_pair_14_15_indice_special_mesh.svg"),
+     r"data\runs\20260504_190849_SMACC_HF_apdl_rerun_2\APDL\submodel\apdl_runfolder\plots\align_debug\stack2_pair_14_15_indice_special_mesh.svg"),
     ("subplots.png",
-     r"data\runs\20260504_232855_R2D2_HF_apdl_rerun_51\APDL\submodel\apdl_runfolder\plots\R2D2_HF_subplots.svg"),
+     r"data\runs\20260504_232855_SMACC_HF_apdl_rerun_51\APDL\submodel\apdl_runfolder\plots\SMACC_HF_subplots.svg"),
 ]
 
 

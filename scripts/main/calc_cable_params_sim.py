@@ -1,5 +1,5 @@
 """
-Python conversion of R2D2_LF_size_and_LSDYNA_inp.m
+Python conversion of SMACC_LF_size_and_LSDYNA_inp.m
 Cable geometry calculations for copper cable analysis
 """
 

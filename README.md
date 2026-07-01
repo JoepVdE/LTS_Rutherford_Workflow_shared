@@ -8,7 +8,7 @@ The toolchain it stitches together: cable-parameter calculation → FreeCAD STEP
 
 ## What one run produces
 
-![Example R2D2_HF subplots](docs/example_R2D2_HF_subplots.svg)
+![Example SMACC_HF subplots](docs/example_SMACC_HF_subplots.svg)
 
 For each cable, one run writes (under `data/runs/<timestamp>_<cable>/`):
 
@@ -31,7 +31,7 @@ docker run --rm \
     -v "$PWD/data:/app/data" \
     -e ANSYS_LICENSE_SERVER=1055@licenansys \
     -e REGISTRY_PREFIX=registry.cern.ch/chart-magnum \
-    lts-cable -c R2D2_LF
+    lts-cable -c SMACC_LF
 ```
 
 The container bundles Python 3.12 + FreeCAD + ParaView and uses Docker-out-of-Docker via the mounted socket to spawn the Ansys Mechanical / LS-DYNA / MAPDL sibling containers on the host daemon.
@@ -45,14 +45,14 @@ pwsh tools/fetch_tools.ps1                          # Windows only -- SHA256-ver
 pip install -e .[notebook]
 export ANSYS_LICENSE_SERVER=1055@licenansys         # CERN; see "License servers" for ETH / PSI
 export REGISTRY_PREFIX=registry.cern.ch/chart-magnum
-lts-cable -c R2D2_LF
+lts-cable -c SMACC_LF
 ```
 
 **Linux/macOS native:** install FreeCAD + ParaView from your package manager (`apt install freecad paraview`, `brew install --cask freecad paraview`); `tools/fetch_tools.ps1` is Windows-portable-bundles only.
 
 **Windows PowerShell:** `$env:ANSYS_LICENSE_SERVER = "1055@licenansys"` instead of `export`.
 
-`--list-cables` prints the three sample presets (`R2D2_LF`, `R2D2_HF`, `CD1`) -- each is a real Rutherford-cable spec runnable end-to-end with no further configuration.
+`--list-cables` prints the three sample presets (`SMACC_LF`, `SMACC_HF`, `CD1`) -- each is a real Rutherford-cable spec runnable end-to-end with no further configuration.
 
 ---
 
@@ -114,8 +114,8 @@ Cable presets and cablestack settings live in [scripts/main/cable_parameters_use
 
 | Preset | Notes |
 |---|---|
-| `R2D2_LF` | Low-field R2D2 cable (default) |
-| `R2D2_HF` | High-field R2D2 cable |
+| `SMACC_LF` | Low-field SMACC cable (default) |
+| `SMACC_HF` | High-field SMACC cable |
 | `CD1` | CD1 cable |
 
 Select a preset with `-c <NAME>` on the CLI, or by editing `active_cable`. Each preset includes wire material (Nb<sub>3</sub>Sn / Cu bilinear plasticity), strand count, pitch, diameters, and cablestack solve settings.
@@ -124,7 +124,7 @@ Key fields (see the file for the full set with inline `_comment_*` docs):
 
 ```jsonc
 {
-  "active_cable": "R2D2_LF",
+  "active_cable": "SMACC_LF",
   "cablestack": {
     "impreg":   4,            // 1=epoxy RT, 2=wax RT, 3=epoxy LN2, 4=wax LN2
     "bc_type":  "cyclic",     // 'cyclic' or 'linear' (displacement_transverse only)
@@ -166,7 +166,7 @@ docker run --rm \
 
 | Flag | Purpose |
 |------|---------|
-| `-c {R2D2_LF\|R2D2_HF\|CD1}` | Cable preset (default `R2D2_LF`) |
+| `-c {SMACC_LF\|SMACC_HF\|CD1}` | Cable preset (default `SMACC_LF`) |
 | `--cables <NAME> [NAME ...]` | Run multiple cables in parallel (one subprocess each) |
 | `-t <ms>` | LS-DYNA termination time (default `0.0001`) |
 | `--apdl-only` | Copy latest run → new `*_apdl_rerun/` folder; re-run d3plot→APDL + cablestack |

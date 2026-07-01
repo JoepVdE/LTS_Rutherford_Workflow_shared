@@ -15,7 +15,7 @@ RESUME,base,db
 ! RESUME restored every parameter from 0-start.inp (n_strands, n_stacks,
 ! x_cab, y_cab, side_support, one_area_impreg).
 ! Only the usecase needs to differ for this stage.
-usecase = 'R2D2_LF'
+usecase = 'SMACC_LF'
 
 /title,submodel_cable_%n_strands%_%usecase%
 /filname,submodel_cable_%n_strands%_%usecase%,0

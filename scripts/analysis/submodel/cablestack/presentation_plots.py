@@ -8,7 +8,7 @@ Run:
     python scripts/analysis/submodel/cablestack/presentation_plots.py \
         [--run data/runs/<run-folder>] [--out tmp_presentation_plots]
 
-Defaults: latest R2D2_LF run under data/runs, tmp_presentation_plots/ at repo root.
+Defaults: latest SMACC_LF run under data/runs, tmp_presentation_plots/ at repo root.
 """
 
 from __future__ import annotations
@@ -623,8 +623,8 @@ def build_pair(stack_dir: Path, wire: dict | None, diameter_mm: float,
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cable", default="R2D2_LF",
-                        help="Cable name (R2D2_LF, R2D2_HF, CD1, ...). "
+    parser.add_argument("--cable", default="SMACC_LF",
+                        help="Cable name (SMACC_LF, SMACC_HF, CD1, ...). "
                              "Used to pick the latest run folder and to label "
                              "the output subdirectory.")
     parser.add_argument("--run", type=Path, default=None,
@@ -648,7 +648,7 @@ def main():
     # block — we need to fetch it from the user-config file.
     user_cfg_path = REPO_ROOT / "scripts" / "main" / "cable_parameters_user.json"
     user_cfg = json.loads(user_cfg_path.read_text())
-    cable_name = cable_params.get("cable_name", "R2D2_LF")
+    cable_name = cable_params.get("cable_name", "SMACC_LF")
     wire = user_cfg["cables"][cable_name].get("wire")
     if wire is None:
         print("[run] WARNING: no wire block — falling back to legacy hex ratios")
@@ -715,7 +715,7 @@ def main():
 
     # -- Plot 7: insulation layer wrapped around stack 1
     apdl_runfolder = run_dir / "APDL" / "submodel" / "apdl_runfolder"
-    cable_name = cable_params.get("cable_name", "R2D2_LF")
+    cable_name = cable_params.get("cable_name", "SMACC_LF")
     cable_cfg = user_cfg["cables"][cable_name]
     stack_height_m = cable_cfg.get("stack_height_mm",
                                    cable_cfg.get("cable_height", 1.31) + 0.3) * 1e-3

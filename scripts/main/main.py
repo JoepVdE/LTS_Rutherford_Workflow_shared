@@ -6,9 +6,9 @@ Usage:
     python main.py [OPTIONS]
 
 Arguments:
-    -c, --cable         Cable configuration to use (default: R2D2_LF)
-                        Available: R2D2_LF, R2D2_HF, CD1  (see cable_parameters_user.json)
-    --cables            Run multiple cables (e.g. --cables R2D2_LF R2D2_HF CD1)
+    -c, --cable         Cable configuration to use (default: SMACC_LF)
+                        Available: SMACC_LF, SMACC_HF, CD1  (see cable_parameters_user.json)
+    --cables            Run multiple cables (e.g. --cables SMACC_LF SMACC_HF CD1)
     -t, --time          Simulation termination time in milliseconds (default: 0.0001)
     --min-mesh-size     Global element size passed to Ansys Mechanical (ELEMENT_SIZE_MM) for
                         meshing the cable STEP geometry into mesh.k, in mm
@@ -26,15 +26,15 @@ Arguments:
     --debug-plots       Emit per-pair conformal mesh / outer-node SVGs (slow; off by default)
 
 Examples:
-    python main.py                                      # Full run with R2D2_LF defaults
-    python main.py -c R2D2_HF -t 0.0002                # R2D2_HF cable, 2 ms simulation
+    python main.py                                      # Full run with SMACC_LF defaults
+    python main.py -c SMACC_HF -t 0.0002                # SMACC_HF cable, 2 ms simulation
     python main.py --quick-run                          # Re-run LS-DYNA on latest mesh
-    python main.py --quick-run -c R2D2_LF              # Re-run LS-DYNA on latest R2D2_LF mesh
-    python main.py --apdl-only                         # d3plot→APDL + cablestack on latest R2D2_LF run
-    python main.py --apdl-only -c R2D2_HF             # Same, for R2D2_HF cable
+    python main.py --quick-run -c SMACC_LF              # Re-run LS-DYNA on latest SMACC_LF mesh
+    python main.py --apdl-only                         # d3plot→APDL + cablestack on latest SMACC_LF run
+    python main.py --apdl-only -c SMACC_HF             # Same, for SMACC_HF cable
     python main.py --apdl-only --no-cablestack         # Generate .inp files only, skip MAPDL Docker
     python main.py --list-cables                        # Show available cables
-    python main.py --cables R2D2_LF R2D2_HF CD1        # Run all three cables in parallel
+    python main.py --cables SMACC_LF SMACC_HF CD1        # Run all three cables in parallel
 """
 
 import argparse
@@ -434,7 +434,7 @@ class WorkflowRunner:
             # Auto-calculate element size from strand diameter if not provided
             if min_mesh_size is None:
                 # Prefer cable_parameters.json (has the geometry-corrected D_Strand),
-                # fall back to metadata parameters, then to R2D2_LF default.
+                # fall back to metadata parameters, then to SMACC_LF default.
                 cable_params_file = run_output_dir / "cable_parameters.json"
                 if cable_params_file.exists():
                     with open(cable_params_file) as _f:
@@ -1603,14 +1603,14 @@ def parse_arguments():
     parser.add_argument(
         '--cable', '-c',
         type=str,
-        default='R2D2_LF',
-        help='Cable configuration to use (default: R2D2_LF)'
+        default='SMACC_LF',
+        help='Cable configuration to use (default: SMACC_LF)'
     )
     parser.add_argument(
         '--cables',
         nargs='+',
         metavar='CABLE',
-        help='Run for multiple cables in sequence (e.g. --cables R2D2_LF R2D2_HF CD1); continues on failure'
+        help='Run for multiple cables in sequence (e.g. --cables SMACC_LF SMACC_HF CD1); continues on failure'
     )
     parser.add_argument(
         '--time', '-t',

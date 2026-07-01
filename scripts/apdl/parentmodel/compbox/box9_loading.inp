@@ -1,4 +1,4 @@
-! BOX9 loading schedule (SMACC_HF / R2D2 HF cable measurement)
+! BOX9 loading schedule (SMACC_HF cable measurement)
 ! Built from BOX9.txt: 14 pressure levels, baseline holding pressure 39.9 MPa.
 ! Interleaved LOAD/UNLOAD pairs, same convention as box6_loading.inp:
 !   odd steps  (1, 3, ..., 27): load peaks (BOX9.txt column 1 pressures,

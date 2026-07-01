@@ -1,5 +1,5 @@
 {
-    "active_cable": "R2D2_LF",
+    "active_cable": "SMACC_LF",
     "wire_material": {
         "_comment": "Bilinear plasticity (MAT_PLASTIC_KINEMATIC) for copper wires in LS-DYNA. sigy_MPa: yield stress [MPa], etan_MPa: tangent modulus after yield [MPa].",
         "sigy_MPa": 20,
@@ -55,8 +55,8 @@
         "hpc_ntasks": 24
     },
     "cables": {
-        "R2D2_LF": {
-            "cable_name": "R2D2_LF",
+        "SMACC_LF": {
+            "cable_name": "SMACC_LF",
             "cable_width": 12.74,
             "cable_height": 1.31,
             "cable_length": 39.5,
@@ -66,7 +66,7 @@
             "n_stacks": 6,
             "stack_height_mm": 1.61,
             "wire": {
-                "_comment": "RVE sub-element parameters (was SMACCLF preset). Convention: centre -> bronze -> Nb3Sn -> Nb barrier -> [D_CORE_EQ_UM] -> Cu sleeve -> outer hex. D_CORE_EQ_UM is the Nb-barrier-outer equivalent diameter (= sub-element diameter). CU_SLEEVE_THICKNESS_UM is the radial Cu spacing from D_CORE_EQ to the outer hex; sets pitch independent of CU_NONCU. CU_NONCU is informational/check only -- the geometric Cu/non-Cu is computed from (A_wire - N_NB3SN*A_subelement)/(N_NB3SN*A_subelement). BRONZE_FRAC is the bronze area fraction inside the Nb3Sn hex.",
+                "_comment": "RVE sub-element parameters Convention: centre -> bronze -> Nb3Sn -> Nb barrier -> [D_CORE_EQ_UM] -> Cu sleeve -> outer hex. D_CORE_EQ_UM is the Nb-barrier-outer equivalent diameter (= sub-element diameter). CU_SLEEVE_THICKNESS_UM is the radial Cu spacing from D_CORE_EQ to the outer hex; sets pitch independent of CU_NONCU. CU_NONCU is informational/check only -- the geometric Cu/non-Cu is computed from (A_wire - N_NB3SN*A_subelement)/(N_NB3SN*A_subelement). BRONZE_FRAC is the bronze area fraction inside the Nb3Sn hex.",
                 "N_NB3SN": 78,
                 "N_TOTAL": 91,
                 "D_CORE_EQ_UM": 50.0,
@@ -77,8 +77,8 @@
                 "REFINE_MESH": false
             }
         },
-        "R2D2_HF": {
-            "cable_name": "R2D2_HF",
+        "SMACC_HF": {
+            "cable_name": "SMACC_HF",
             "cable_width": 12.74,
             "cable_height": 2.06,
             "cable_length": 39.5,
@@ -88,7 +88,7 @@
             "n_stacks": 6,
             "stack_height_mm": 2.36,
             "wire": {
-                "_comment": "RVE sub-element parameters (was SMACCHF preset).",
+                "_comment": "RVE sub-element parameters SMACC_HF cable parameters.",
                 "N_NB3SN": 162,
                 "N_TOTAL": 169,
                 "D_CORE_EQ_UM": 64.0,
@@ -134,7 +134,7 @@
             "n_stacks": 6,
             "stack_height_mm": 2.36,
             "wire": {
-                "_comment": "Clone of R2D2_HF (the former SMACCHF preset). RVE sub-element parameters.",
+                "_comment": "Clone of SMACC_HF (the former SMACCHF preset). RVE sub-element parameters.",
                 "N_NB3SN": 162,
                 "N_TOTAL": 169,
                 "D_CORE_EQ_UM": 64.0,
@@ -146,7 +146,7 @@
             }
         },
         "TEST_A_thinmany_LIGHT": {
-            "_comment": "Synthetic test cable (2026-06-24): TEST_A_thinmany at LIGHT compaction (cable_height = 1.02 * 2*D_Strand). 5 architectures x 3 levels. cable_width ~ 0.80 * W_rutherford (0.65 for TEST_E). Wire blocks are R2D2_LF stub clones (RVE off via --no-rve).",
+            "_comment": "Synthetic test cable (2026-06-24): TEST_A_thinmany at LIGHT compaction (cable_height = 1.02 * 2*D_Strand). 5 architectures x 3 levels. cable_width ~ 0.80 * W_rutherford (0.65 for TEST_E). Wire blocks are SMACC_LF stub clones (RVE off via --no-rve).",
             "cable_name": "TEST_A_thinmany_LIGHT",
             "cable_width": 12.338,
             "cable_height": 1.02,

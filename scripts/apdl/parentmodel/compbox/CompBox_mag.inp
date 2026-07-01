@@ -23,7 +23,7 @@ wf_cable_height = 0
 ! wf_cable_* = 0 means: use the cable_type dimension branch below.
 ! Nonzero values (metres; 2*x_cab / 2*y_cab) override that branch, so any
 ! cable preset can run without a dedicated *elseif. Known cable_type tokens:
-! CD1, CD1_submodel, Subscale, R2D2_LF, R2D2_HF, SMACC_HF_submodel.
+! CD1, CD1_submodel, Subscale, SMACC_LF, SMACC_HF, SMACC_HF_submodel.
 
 
 /title,CompBox_MAG_%cable_type%
@@ -82,14 +82,14 @@ tref,293
 *elseif,cable_type,eq,'Subscale',then
     *set,cable_height,1.6e-3
     *set,cable_width,4.1e-3
-*elseif,cable_type,eq,'R2D2_LF',then
+*elseif,cable_type,eq,'SMACC_LF',then
     *set,cable_height,1.31e-3+2*insulation_thickness
     *set,cable_width,12.74e-3+2*insulation_thickness
-*elseif,cable_type,eq,'R2D2_HF',then
+*elseif,cable_type,eq,'SMACC_HF',then
     *set,cable_height,2.06e-3+2*insulation_thickness
     *set,cable_width,12.74e-3+2*insulation_thickness
 *elseif,cable_type,eq,'SMACC_HF_submodel',then
-    ! SMACC_HF (R2D2 HF) deformed-cable submodel footprint. Matches the
+    ! SMACC_HF deformed-cable submodel footprint. Matches the
     ! Rutherford-workflow convention: height = stack_height_mm = 2.36 mm
     ! (compressed height incl. insulation), width = 2*x_cab with the
     ! 0.5 mm/side impregnation margin: 2*(12.74/2 + 0.5) = 13.74 mm.

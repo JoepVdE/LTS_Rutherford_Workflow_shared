@@ -11,7 +11,7 @@ n_stacks = 10
 side_support = 0 !1
 one_area_impreg = 0 !
 
-usecase = 'R2D2_LF_restart'
+usecase = 'SMACC_LF_restart'
 
 
 !half size of cable

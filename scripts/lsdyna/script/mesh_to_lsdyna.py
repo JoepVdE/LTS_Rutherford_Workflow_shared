@@ -42,11 +42,11 @@ import time
 
 PARTS_DIR = (
     r"c:\Users\vanden_j\OneDrive - ETH Zurich\Desktop\workbench meshing"
-    r"\20260410_103406_R2D2_LF\stl_parts"
+    r"\20260410_103406_SMACC_LF\stl_parts"
 )
 
 # Output LS-DYNA keyword file path
-OUTPUT_K_FILE = os.path.join(PARTS_DIR, "R2D2_LF_mesh.k")
+OUTPUT_K_FILE = os.path.join(PARTS_DIR, "SMACC_LF_mesh.k")
 
 # File extension to search for in PARTS_DIR.
 #   "stl"  – surface/faceted import (solid mesh only if parts are watertight)
